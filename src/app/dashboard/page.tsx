@@ -1,87 +1,214 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { signOut } from '@/app/auth/actions'
+import Link from 'next/link'
+import { JobCard } from '@/components/jobs/JobCard'
+import type { Job } from '@/lib/types'
+
+// ── Greeting ──────────────────────────────────────────────────────────────────
+
+function greeting(name: string) {
+  const h = new Date().getUTCHours() // close enough for a greeting
+  if (h < 12) return `Good morning, ${name}`
+  if (h < 17) return `Good afternoon, ${name}`
+  return `Good evening, ${name}`
+}
+
+// ── Stat chip ─────────────────────────────────────────────────────────────────
+
+function Stat({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <div
+      className="flex flex-col items-center px-4 py-2 rounded-2xl flex-1"
+      style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+    >
+      <span className="text-xl font-bold" style={{ color }}>{value}</span>
+      <span className="text-[10px] tracking-wide uppercase mt-0.5" style={{ color: '#8B8F9E' }}>{label}</span>
+    </div>
+  )
+}
+
+// ── Section header ────────────────────────────────────────────────────────────
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-3">
+      <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8B8F9E' }}>
+        {title}
+      </span>
+      <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+    </div>
+  )
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+      <svg width="80" height="72" viewBox="0 0 100 90" fill="none" className="mb-6 opacity-20">
+        <polygon points="50,4 96,84 4,84" fill="none" stroke="#C8A44E" strokeWidth="2" strokeLinejoin="round" />
+      </svg>
+      <h3 className="text-base font-semibold mb-2" style={{ color: '#E8E9ED' }}>No active jobs</h3>
+      <p className="text-sm mb-6 max-w-xs" style={{ color: '#8B8F9E' }}>
+        Create your first job from one of your templates to get started.
+      </p>
+      <Link
+        href="/jobs/new"
+        className="px-6 py-3 rounded-xl text-sm font-semibold transition-all active:scale-95"
+        style={{ backgroundColor: '#C8A44E', color: '#0F1117' }}
+      >
+        Create Your First Job
+      </Link>
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
   if (!user) redirect('/login')
 
-  // Fetch the user's display name from public.users
-  const { data: profile } = await supabase
-    .from('users')
-    .select('display_name, role')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, { data: activeJobs }, { data: completedJobs }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('display_name, role')
+      .eq('id', user.id)
+      .single(),
+
+    supabase
+      .from('jobs')
+      .select('*, job_templates(name, color), job_steps(id, done)')
+      .in('status', ['unassigned', 'in_progress', 'blocked'])
+      .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(30),
+
+    supabase
+      .from('jobs')
+      .select('id, title, completed_at, job_templates(name, color)')
+      .eq('status', 'completed')
+      .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+      .order('completed_at', { ascending: false })
+      .limit(5),
+  ])
+
+  const jobs = (activeJobs ?? []) as unknown as Job[]
+
+  const inProgress = jobs.filter(j => j.status === 'in_progress')
+  const unassigned = jobs.filter(j => j.status === 'unassigned')
+  const blocked    = jobs.filter(j => j.status === 'blocked')
+
+  const urgentCount    = jobs.filter(j => j.priority === 'urgent').length
+  const completedToday = (completedJobs ?? []).filter(j =>
+    j.completed_at && new Date(j.completed_at).toDateString() === new Date().toDateString()
+  ).length
+
+  const displayName = profile?.display_name ?? user.email?.split('@')[0] ?? 'there'
+
+  // Today's date
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <main
-      className="min-h-screen flex flex-col items-center justify-center gap-6 p-8"
-      style={{ backgroundColor: '#0F1117' }}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-2.5">
-        <svg width="36" height="36" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <polygon points="16,3 30,27 2,27" fill="#C8A44E" opacity="0.9" />
-          <polygon points="16,10 25,25 7,25" fill="#0F1117" />
-          <polygon points="16,14 22,24 10,24" fill="#C8A44E" opacity="0.5" />
-        </svg>
-        <span className="text-xl font-bold tracking-widest" style={{ color: '#C8A44E' }}>
-          GEAUX OPS
-        </span>
-      </div>
-
-      {/* Status card */}
-      <div
-        className="w-full max-w-md rounded-2xl p-8 text-center"
-        style={{
-          backgroundColor: '#1A1D27',
-          border: '1px solid rgba(255,255,255,0.05)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        }}
-      >
-        <div
-          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-5"
-          style={{
-            backgroundColor: 'rgba(74,222,128,0.1)',
-            border: '1px solid rgba(74,222,128,0.2)',
-            color: '#4ADE80',
-          }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          Auth working
-        </div>
-
-        <h1 className="text-2xl font-bold mb-2" style={{ color: '#E8E9ED' }}>
-          Welcome, {profile?.display_name ?? user.email}
-        </h1>
-        <p className="text-sm mb-1" style={{ color: '#8B8F9E' }}>
-          Role: <span style={{ color: '#C8A44E' }}>{profile?.role ?? 'loading…'}</span>
-        </p>
-        <p className="text-sm mb-8" style={{ color: '#8B8F9E' }}>
-          {user.email}
-        </p>
-
-        <p className="text-sm mb-8 leading-relaxed" style={{ color: '#8B8F9E' }}>
-          Authentication is set up and working.
-          The full dashboard is coming in the next step.
-        </p>
-
-        <form action={signOut}>
+    <div className="max-w-lg mx-auto">
+      {/* ── Header ── */}
+      <div className="px-5 pt-12 pb-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-0.5" style={{ color: '#E8E9ED' }}>
+              {greeting(displayName)}
+            </h1>
+            <p className="text-sm" style={{ color: '#8B8F9E' }}>{today}</p>
+          </div>
+          {/* Notification bell placeholder */}
           <button
-            type="submit"
-            className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all active:scale-[0.98]"
-            style={{
-              backgroundColor: 'rgba(248,113,113,0.1)',
-              border: '1px solid rgba(248,113,113,0.2)',
-              color: '#F87171',
-            }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-opacity hover:opacity-70"
+            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)' }}
+            aria-label="Notifications"
           >
-            Sign Out
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 01-3.46 0" />
+            </svg>
           </button>
-        </form>
+        </div>
       </div>
-    </main>
+
+      {/* ── Stats row ── */}
+      <div className="px-5 mb-8 flex gap-3">
+        <Stat value={inProgress.length} label="In Progress" color="#60A5FA" />
+        <Stat value={completedToday}    label="Done Today"  color="#4ADE80" />
+        <Stat value={urgentCount}       label="Urgent"      color="#F87171" />
+      </div>
+
+      {/* ── Main content ── */}
+      <div className="px-5 space-y-8">
+
+        {jobs.length === 0 && <EmptyState />}
+
+        {/* In Progress */}
+        {inProgress.length > 0 && (
+          <section>
+            <SectionHeader title="In Progress" />
+            <div className="space-y-3">
+              {inProgress.map(job => <JobCard key={job.id} job={job} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Blocked */}
+        {blocked.length > 0 && (
+          <section>
+            <SectionHeader title="Blocked" />
+            <div className="space-y-3">
+              {blocked.map(job => <JobCard key={job.id} job={job} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Unassigned */}
+        {unassigned.length > 0 && (
+          <section>
+            <SectionHeader title="Unassigned" />
+            <div className="space-y-3">
+              {unassigned.map(job => <JobCard key={job.id} job={job} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Recently completed */}
+        {(completedJobs ?? []).length > 0 && (
+          <section className="pb-4">
+            <SectionHeader title="Recently Completed" />
+            <div className="space-y-2">
+              {(completedJobs ?? []).map((job) => (
+                <Link
+                  key={job.id}
+                  href={`/jobs/${job.id}`}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl transition-opacity hover:opacity-70"
+                  style={{
+                    backgroundColor: '#1A1D27',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                  }}
+                >
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: (Array.isArray(job.job_templates) ? job.job_templates[0] : job.job_templates)?.color ?? '#4ADE80' }}
+                  />
+                  <span className="text-sm flex-1 truncate" style={{ color: '#8B8F9E' }}>
+                    {job.title}
+                  </span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+      </div>
+    </div>
   )
 }
