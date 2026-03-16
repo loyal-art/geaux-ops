@@ -7,7 +7,7 @@ import type { TemplateStep } from '@/lib/types'
 
 // ── Create Job ────────────────────────────────────────────────────────────────
 
-export async function createJob(_: unknown, formData: FormData) {
+export async function createJob(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -34,7 +34,7 @@ export async function createJob(_: unknown, formData: FormData) {
     .single()
 
   if (jobError || !job) {
-    return { error: jobError?.message ?? 'Failed to create job' }
+    redirect(`/jobs/new?error=${encodeURIComponent(jobError?.message ?? 'Failed to create job')}`)
   }
 
   // Copy steps from template
