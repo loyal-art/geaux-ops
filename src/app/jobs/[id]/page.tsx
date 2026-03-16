@@ -120,8 +120,9 @@ export default async function JobDetailPage({
   const completedSteps = steps.filter(s => s.done).length
   const progress       = totalSteps > 0 ? completedSteps / totalSteps : 0
 
-  const color        = (job.job_templates as { name: string; color: string } | null)?.color ?? '#C8A44E'
-  const templateName = (job.job_templates as { name: string; color: string } | null)?.name ?? 'Custom Task'
+  const tpl          = Array.isArray(job.job_templates) ? job.job_templates[0] : job.job_templates
+  const color        = tpl?.color ?? '#C8A44E'
+  const templateName = tpl?.name  ?? 'Custom Task'
   const status       = STATUS_STYLES[job.status as JobStatus]
 
   const isDone      = job.status === 'completed'

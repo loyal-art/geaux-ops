@@ -194,7 +194,7 @@ export default async function DashboardPage() {
                 >
                   <div
                     className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: (job.job_templates as { color: string } | null)?.color ?? '#4ADE80' }}
+                    style={{ backgroundColor: (Array.isArray(job.job_templates) ? job.job_templates[0] : job.job_templates)?.color ?? '#4ADE80' }}
                   />
                   <span className="text-sm flex-1 truncate" style={{ color: '#8B8F9E' }}>
                     {job.title}

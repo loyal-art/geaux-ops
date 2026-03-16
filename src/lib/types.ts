@@ -42,8 +42,8 @@ export interface Job {
   created_at:        string
   completed_at:      string | null
   archived_at:       string | null
-  // Joined from job_templates
-  job_templates: { name: string; color: string } | null
+  // Joined from job_templates (Supabase may return array or single object)
+  job_templates: Array<{ name: string; color: string }> | { name: string; color: string } | null
   // Joined from job_steps
   job_steps: Array<{ id: string; done: boolean }>
 }

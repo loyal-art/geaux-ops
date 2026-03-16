@@ -26,8 +26,9 @@ export function JobCard({ job }: { job: Job }) {
   const completedSteps = job.job_steps?.filter(s => s.done).length ?? 0
   const progress       = totalSteps > 0 ? completedSteps / totalSteps : 0
 
-  const color       = job.job_templates?.color ?? '#C8A44E'
-  const templateName = job.job_templates?.name ?? 'Custom Task'
+  const tpl          = Array.isArray(job.job_templates) ? job.job_templates[0] : job.job_templates
+  const color        = tpl?.color ?? '#C8A44E'
+  const templateName = tpl?.name  ?? 'Custom Task'
   const status      = STATUS_STYLES[job.status]
   const priorityDot = PRIORITY_DOT[job.priority]
 
