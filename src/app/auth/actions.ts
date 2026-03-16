@@ -59,7 +59,7 @@ export async function signInWithGoogle() {
   })
 
   if (error || !data.url) {
-    return { error: error?.message ?? 'Failed to initiate Google sign-in' }
+    redirect(`/login?error=${encodeURIComponent(error?.message ?? 'Failed to initiate Google sign-in')}`)
   }
 
   redirect(data.url)
