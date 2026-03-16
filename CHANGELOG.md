@@ -9,6 +9,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 4 — Full Dashboard & Job System (March 2026)
+
+### Added
+- `src/lib/types.ts` — shared TypeScript types for Job, JobStep, JobComment, JobTemplate, Profile
+- `src/app/jobs/actions.ts` — server actions: `createJob`, `toggleStep`, `addComment`, `addStep`, `updateJobStatus`
+- `src/components/ui/BottomNav.tsx` — mobile-first bottom navigation bar (Home, Board, + New, Tasks, Profile)
+- `src/components/jobs/TriangleProgress.tsx` — signature triangle progress SVG, fills bottom-to-top, shifts to green at 100%
+- `src/components/jobs/JobCard.tsx` — job card with template color strip, triangle progress, status/priority badges, step count
+- `src/components/jobs/StepItem.tsx` — interactive step checkbox with optimistic UI via `useTransition`
+- `src/components/jobs/AddStepForm.tsx` — inline form to add a step to an existing job
+- `src/components/jobs/CommentForm.tsx` — comment posting form with `useActionState`
+- `src/app/dashboard/layout.tsx` — dashboard layout: auth guard + bottom nav wrapper
+- `src/app/dashboard/page.tsx` — full dashboard: greeting, stats row, active job cards, recently completed section, empty state
+- `src/app/jobs/layout.tsx` — jobs layout: auth guard + bottom nav wrapper
+- `src/app/jobs/new/page.tsx` — two-phase job creation: template picker → job form (title, client, F1 finish definition, priority)
+- `src/app/jobs/[id]/page.tsx` — job detail: large triangle progress, step checklist, add step, comment thread, status controls
+
+---
+
 ## Step 3 — Authentication (March 2026)
 
 ### Added
