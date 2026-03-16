@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0F1117;
+  --surface: #1A1D27;
+  --color-gold: #C8A44E;
+  --color-green: #4ADE80;
+  --color-blue: #60A5FA;
+  --color-purple: #A78BFA;
+  --color-orange: #FB923C;
+  --color-red: #F87171;
+  --color-text: #E8E9ED;
+  --color-dim: #8B8F9E;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-gold: var(--color-gold);
+  --color-green: var(--color-green);
+  --color-blue: var(--color-blue);
+  --color-purple: var(--color-purple);
+  --color-orange: var(--color-orange);
+  --color-red: var(--color-red);
+  --color-text: var(--color-text);
+  --color-dim: var(--color-dim);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
 }
 
 body {
   background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--color-text);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
