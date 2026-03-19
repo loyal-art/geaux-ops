@@ -9,6 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 5 — Recurring Job Scheduler (March 2026)
+
+### Added
+- `src/lib/types.ts` — added `RecurringFrequency` type and `RecurringSchedule` interface
+- `src/lib/supabase/service.ts` — server-only Supabase service-role client (bypasses RLS for system operations)
+- `src/lib/recurring.ts` — shared `calcNextGenerateAt` utility: computes next run timestamp per frequency (daily, weekdays, weekly, monthly)
+- `src/app/recurring/actions.ts` — owner-only server actions: `createRecurringSchedule`, `toggleScheduleActive`, `deleteRecurringSchedule`
+- `src/app/recurring/layout.tsx` — layout with auth guard + bottom nav wrapper
+- `src/app/recurring/page.tsx` — schedule management dashboard: lists all active/paused schedules, pause/resume toggle, delete, link to create
+- `src/app/recurring/new/page.tsx` — two-phase schedule setup: template picker → frequency + assignee form
+- `src/app/api/recurring/generate/route.ts` — `GET` endpoint called by Vercel Cron; finds all due active schedules, generates a fresh job from each template (with steps copied), updates `last_generated_at` and `next_generate_at`; secured by `CRON_SECRET`
+- `vercel.json` — Vercel Cron config: runs `/api/recurring/generate` daily at 06:00 UTC
+- Updated `src/components/ui/BottomNav.tsx` — replaced Tasks tab with Recurring (repeat icon, `/recurring` route)
+
+---
+
 ## Step 4 — Full Dashboard & Job System (March 2026)
 
 ### Added
