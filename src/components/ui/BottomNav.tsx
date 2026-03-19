@@ -25,11 +25,13 @@ function BoardIcon({ active }: { active: boolean }) {
   )
 }
 
-function TasksIcon({ active }: { active: boolean }) {
+function RecurringIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 11l3 3L22 4" />
-      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+      <path d="M17 2l4 4-4 4" />
+      <path d="M3 11V9a4 4 0 014-4h14" />
+      <path d="M7 22l-4-4 4-4" />
+      <path d="M21 13v2a4 4 0 01-4 4H3" />
     </svg>
   )
 }
@@ -48,7 +50,7 @@ function ProfileIcon({ active }: { active: boolean }) {
 const NAV = [
   { href: '/dashboard', label: 'Home',    Icon: HomeIcon },
   { href: '/board',     label: 'Board',   Icon: BoardIcon },
-  { href: '/tasks',     label: 'Tasks',   Icon: TasksIcon },
+  { href: '/recurring', label: 'Recurring', Icon: RecurringIcon },
   { href: '/profile',   label: 'Profile', Icon: ProfileIcon },
 ]
 

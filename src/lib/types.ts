@@ -1,6 +1,7 @@
-export type UserRole     = 'owner' | 'partner' | 'team_member' | 'family_member'
-export type JobStatus    = 'unassigned' | 'in_progress' | 'blocked' | 'cancelled' | 'completed' | 'archived'
-export type JobPriority  = 'urgent' | 'normal' | 'low'
+export type UserRole          = 'owner' | 'partner' | 'team_member' | 'family_member'
+export type JobStatus         = 'unassigned' | 'in_progress' | 'blocked' | 'cancelled' | 'completed' | 'archived'
+export type JobPriority       = 'urgent' | 'normal' | 'low'
+export type RecurringFrequency = 'daily' | 'weekdays' | 'weekly' | 'monthly'
 
 export interface Profile {
   id:           string
@@ -59,6 +60,21 @@ export interface JobStep {
   allowance_amount: number
   sort_order:       number
   created_at:       string
+}
+
+export interface RecurringSchedule {
+  id:                 string
+  template_id:        string
+  frequency:          RecurringFrequency
+  group_id:           string | null
+  assigned_to:        string | null
+  active:             boolean
+  last_generated_at:  string | null
+  next_generate_at:   string | null
+  created_at:         string
+  // Joined
+  job_templates: { name: string; color: string } | null
+  users:         { display_name: string | null } | null
 }
 
 export interface JobComment {
