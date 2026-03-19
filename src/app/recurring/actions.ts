@@ -21,7 +21,7 @@ export async function createRecurringSchedule(formData: FormData) {
     .single()
 
   if (profile?.role !== 'owner') {
-    return { error: 'Only owners can create recurring schedules' }
+    redirect('/recurring?error=not-owner')
   }
 
   const templateId  = formData.get('template_id') as string
@@ -30,7 +30,7 @@ export async function createRecurringSchedule(formData: FormData) {
   const groupId     = (formData.get('group_id') as string) || null
 
   if (!templateId || !frequency) {
-    return { error: 'Template and frequency are required' }
+    redirect('/recurring/new?error=missing-fields')
   }
 
   const nextGenerateAt = calcNextGenerateAt(frequency)
@@ -46,7 +46,7 @@ export async function createRecurringSchedule(formData: FormData) {
       next_generate_at: nextGenerateAt.toISOString(),
     })
 
-  if (error) return { error: error.message }
+  if (error) redirect(`/recurring/new?template=${templateId}&error=${encodeURIComponent(error.message)}`)
 
   revalidatePath('/recurring')
   redirect('/recurring')
