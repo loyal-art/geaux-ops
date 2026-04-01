@@ -6,7 +6,8 @@ import { StepItem } from '@/components/jobs/StepItem'
 import { AddStepForm } from '@/components/jobs/AddStepForm'
 import { CommentForm } from '@/components/jobs/CommentForm'
 import { updateJobStatus } from '@/app/jobs/actions'
-import type { JobStep, JobComment, JobStatus } from '@/lib/types'
+import { CategoryChips } from '@/components/jobs/CategoryChips'
+import type { JobStep, JobComment, JobStatus, JobCategory } from '@/lib/types'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -168,8 +169,13 @@ export default async function JobDetailPage({
 
         {/* Client name */}
         {job.client_name && (
-          <p className="text-sm mb-5" style={{ color: '#8B8F9E' }}>{job.client_name}</p>
+          <p className="text-sm mb-4" style={{ color: '#8B8F9E' }}>{job.client_name}</p>
         )}
+
+        {/* Category chips */}
+        <div className="mb-5">
+          <CategoryChips jobId={job.id} category={(job.category ?? 'misc') as JobCategory} />
+        </div>
 
         {/* Triangle + progress text */}
         <div className="flex items-center gap-6 my-6">

@@ -9,6 +9,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 8 — Category Chips on Job Detail Page (April 2026)
+
+### Added
+- `src/components/jobs/CategoryChips.tsx` — `'use client'` chip row (Business / Home / Personal / Misc); active chip highlighted gold; optimistic update via `useTransition` so selection feels instant
+- `src/app/jobs/actions.ts` — added `updateJobCategory(jobId, category)` server action; revalidates job detail and dashboard
+- Updated `src/app/jobs/[id]/page.tsx` — `CategoryChips` placed between client name and triangle progress block; current category passed as prop
+
+---
+
 ## Step 7 — Dashboard Redesign: Tabs, Search & Category Filtering (April 2026)
 
 ### Added
