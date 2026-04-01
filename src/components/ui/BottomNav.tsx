@@ -14,13 +14,13 @@ function HomeIcon({ active }: { active: boolean }) {
   )
 }
 
-function BoardIcon({ active }: { active: boolean }) {
+function ClientsIcon({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   )
 }
@@ -48,10 +48,10 @@ function ProfileIcon({ active }: { active: boolean }) {
 // ── Nav Items ─────────────────────────────────────────────────────────────────
 
 const NAV = [
-  { href: '/dashboard', label: 'Home',    Icon: HomeIcon },
-  { href: '/board',     label: 'Board',   Icon: BoardIcon },
+  { href: '/dashboard', label: 'Home',      Icon: HomeIcon },
+  { href: '/clients',   label: 'Clients',   Icon: ClientsIcon },
   { href: '/recurring', label: 'Recurring', Icon: RecurringIcon },
-  { href: '/profile',   label: 'Profile', Icon: ProfileIcon },
+  { href: '/profile',   label: 'Profile',   Icon: ProfileIcon },
 ]
 
 // ── Component ─────────────────────────────────────────────────────────────────

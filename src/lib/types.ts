@@ -1,7 +1,8 @@
-export type UserRole          = 'owner' | 'partner' | 'team_member' | 'family_member'
-export type JobStatus         = 'unassigned' | 'in_progress' | 'blocked' | 'cancelled' | 'completed' | 'archived'
-export type JobPriority       = 'urgent' | 'normal' | 'low'
+export type UserRole           = 'owner' | 'partner' | 'team_member' | 'family_member'
+export type JobStatus          = 'unassigned' | 'in_progress' | 'blocked' | 'cancelled' | 'completed' | 'archived'
+export type JobPriority        = 'urgent' | 'normal' | 'low'
 export type RecurringFrequency = 'daily' | 'weekdays' | 'weekly' | 'monthly'
+export type ProjectStatus      = 'active' | 'paused' | 'complete'
 
 export interface Profile {
   id:           string
@@ -30,6 +31,7 @@ export interface JobTemplate {
 export interface Job {
   id:                string
   template_id:       string | null
+  project_id:        string | null
   title:             string
   client_name:       string | null
   finish_definition: string | null
@@ -85,4 +87,32 @@ export interface JobComment {
   created_at: string
   // Joined from users
   users: { display_name: string | null } | null
+}
+
+export interface Client {
+  id:            string
+  name:          string
+  contact_name:  string | null
+  contact_email: string | null
+  contact_phone: string | null
+  locations:     unknown[]
+  notes:         string | null
+  created_by:    string | null
+  created_at:    string
+  // Joined: projects count + statuses
+  projects?: Array<{ id: string; status: ProjectStatus }>
+}
+
+export interface Project {
+  id:          string
+  client_id:   string
+  name:        string
+  description: string | null
+  status:      ProjectStatus
+  created_by:  string | null
+  created_at:  string
+  updated_at:  string
+  // Joined
+  clients?: { id: string; name: string } | null
+  jobs?:    Array<{ id: string; status: JobStatus }>
 }
