@@ -1,6 +1,7 @@
 export type UserRole           = 'owner' | 'partner' | 'team_member' | 'family_member'
 export type JobStatus          = 'unassigned' | 'in_progress' | 'blocked' | 'cancelled' | 'completed' | 'archived'
 export type JobPriority        = 'urgent' | 'normal' | 'low'
+export type JobCategory        = 'business' | 'home' | 'personal' | 'misc'
 export type RecurringFrequency = 'daily' | 'weekdays' | 'weekly' | 'monthly'
 export type ProjectStatus      = 'active' | 'paused' | 'complete'
 
@@ -32,6 +33,7 @@ export interface Job {
   id:                string
   template_id:       string | null
   project_id:        string | null
+  category:          JobCategory
   title:             string
   client_name:       string | null
   finish_definition: string | null
@@ -49,6 +51,8 @@ export interface Job {
   job_templates: Array<{ name: string; color: string }> | { name: string; color: string } | null
   // Joined from job_steps
   job_steps: Array<{ id: string; done: boolean }>
+  // Optional join for project name (used in dashboard search)
+  projects?: { name: string } | null
 }
 
 export interface JobStep {

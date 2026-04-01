@@ -165,6 +165,27 @@ export default async function NewJobPage({
             </select>
           </div>
 
+          {/* Category */}
+          <div>
+            <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider" style={{ color: '#8B8F9E' }}>
+              Category
+            </label>
+            <select
+              name="category"
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                border:          '1px solid rgba(255,255,255,0.08)',
+                color:           '#E8E9ED',
+              }}
+            >
+              <option value="misc">Misc</option>
+              <option value="business">Business</option>
+              <option value="home">Home</option>
+              <option value="personal">Personal</option>
+            </select>
+          </div>
+
           {/* Steps preview */}
           {steps.length > 0 && (
             <div>

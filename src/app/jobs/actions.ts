@@ -17,6 +17,7 @@ export async function createJob(formData: FormData) {
   const clientName       = formData.get('client_name') as string
   const finishDefinition = formData.get('finish_definition') as string
   const priority         = (formData.get('priority') as string) || 'normal'
+  const category         = (formData.get('category') as string) || 'misc'
 
   const { data: job, error: jobError } = await supabase
     .from('jobs')
@@ -26,6 +27,7 @@ export async function createJob(formData: FormData) {
       client_name:       clientName?.trim() || null,
       finish_definition: finishDefinition?.trim() || null,
       priority,
+      category,
       status:            'in_progress',
       assigned_to:       user.id,
       created_by:        user.id,
