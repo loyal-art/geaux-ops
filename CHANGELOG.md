@@ -9,6 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 7 — Dashboard Redesign: Tabs, Search & Category Filtering (April 2026)
+
+### Added
+- `supabase/migrations/007_jobs_category.sql` — `ALTER TABLE jobs ADD COLUMN category text not null default 'misc'` with check constraint (`business | home | personal | misc`); index on `category`
+- `src/lib/types.ts` — added `JobCategory` type; added `category` field and optional `projects` join to `Job` interface
+- `src/components/dashboard/DashboardFeed.tsx` — new `'use client'` component handling all interactive dashboard state:
+  - **Tabs** (All / Business / Home / Personal / Misc) — horizontally scrollable, gold active indicator
+  - **Search bar** — filters by job title, client name, and joined project name as you type; clear button when active
+  - **Client chips** — horizontal pill row visible only on Business tab; shows unique `client_name` values; tap to filter, tap All or same chip to clear
+  - **Filtered job sections** — In Progress, Blocked, Unassigned, Recently Completed using existing `JobCard` + triangle progress bars; empty states for no-jobs and no-results
+- Updated `src/app/dashboard/page.tsx` — greeting + stats row remain server-rendered (always show global counts); jobs now fetched with `projects(name)` join for search; passes `activeJobs` + `completedJobs` to `DashboardFeed`; completed jobs now fetched with full fields (including `job_steps`) for `JobCard` rendering
+- Updated `src/app/jobs/actions.ts` — `createJob` reads and persists `category` from form data
+- Updated `src/app/jobs/new/page.tsx` — added Category dropdown (Misc / Business / Home / Personal) after Priority field; defaults to Misc
+
+---
+
 ## Step 6 — Client Management & Project Grouping (April 2026)
 
 ### Added
