@@ -149,6 +149,25 @@ export async function addComment(_: unknown, formData: FormData) {
   return { error: null }
 }
 
+// ── Update Job Category ───────────────────────────────────────────────────────
+
+export async function updateJobCategory(jobId: string, category: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({ category })
+    .eq('id', jobId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath('/dashboard')
+  return { error: null }
+}
+
 // ── Update Job Status ─────────────────────────────────────────────────────────
 
 export async function updateJobStatus(jobId: string, status: string) {
