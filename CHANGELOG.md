@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — Phase 2: Multi-User & Client Management
+
+---
+
+## Step 6 — Client Management & Project Grouping (April 2026)
+
+### Added
+- `supabase/migrations/004_clients.sql` — `clients` table (id, name, contact_name, contact_email, contact_phone, locations jsonb, notes, created_by, created_at); RLS: owner full access, all authenticated users can view
+- `supabase/migrations/005_projects.sql` — `projects` table (id, client_id FK, name, description, status enum active/paused/complete, created_by, created_at, updated_at); `set_updated_at()` trigger; RLS: owner full access, all authenticated users can view
+- `supabase/migrations/006_jobs_project_id.sql` — `ALTER TABLE jobs ADD COLUMN project_id uuid FK → projects`; partial index on project_id
+- `src/lib/types.ts` — added `ProjectStatus` type, `Client` interface, `Project` interface; added `project_id` field to `Job`
+- `src/app/clients/actions.ts` — owner-only server actions: `createClientRecord`, `updateClientRecord`, `deleteClientRecord`
+- `src/app/projects/actions.ts` — owner-only server actions: `createProject`, `updateProjectStatus`, `deleteProject`
+- `src/app/clients/layout.tsx` — auth guard + bottom nav wrapper
+- `src/app/clients/page.tsx` — client list page: stats row (total clients, active projects, total projects), client cards with project status dots, active/others grouping
+- `src/app/clients/new/page.tsx` — new client form (name, contact name/email/phone, notes)
+- `src/app/clients/[id]/page.tsx` — client detail: avatar, contact info, notes, projects grouped by status, inline quick-add project form (`?add=1`)
+- `src/app/projects/[id]/layout.tsx` — auth guard + bottom nav wrapper
+- `src/app/projects/[id]/page.tsx` — project detail: breadcrumb nav, status cycle button, job stats row, jobs grouped by status using existing `JobCard` + triangle progress bars, "Add Job to Project" CTA
+- `src/app/projects/new/layout.tsx` — auth guard + bottom nav wrapper
+- `src/app/projects/new/page.tsx` — new project form with client picker (when no client_id provided), name/description/status fields
+- Updated `src/components/ui/BottomNav.tsx` — replaced Board tab with Clients (people icon, `/clients` route)
+
+---
+
 ## [Unreleased] — Phase 1: Foundation
 
 ---
