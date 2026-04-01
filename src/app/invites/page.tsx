@@ -32,18 +32,17 @@ function SectionHeader({ title }: { title: string }) {
   )
 }
 
-// ── Invite form (client-action wrapped) ───────────────────────────────────────
+// ── Invite form ───────────────────────────────────────────────────────────────
 
 function InviteForm({ error }: { error?: string }) {
   return (
     <form action={createInvite} className="space-y-4">
-      {/* Hidden prev-state slot required by useActionState signature — server action ignores it */}
       {error && (
         <div
           className="px-4 py-3 rounded-xl text-sm"
           style={{ backgroundColor: 'rgba(248,113,113,0.1)', color: '#F87171', border: '1px solid rgba(248,113,113,0.2)' }}
         >
-          {error}
+          {decodeURIComponent(error)}
         </div>
       )}
 
@@ -150,7 +149,13 @@ function InviteRow({ invite }: { invite: Invite }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function InvitesPage() {
+export default async function InvitesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const { error } = await searchParams
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -194,7 +199,7 @@ export default async function InvitesPage() {
             className="p-4 rounded-2xl"
             style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
           >
-            <InviteForm />
+            <InviteForm error={error} />
           </div>
         </section>
 
