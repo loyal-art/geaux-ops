@@ -9,6 +9,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 9 — Invite System & User Onboarding Gate (April 2026)
+
+### Added
+- `supabase/migrations/008_invites.sql` — `invites` table (id, email, role, invited_by FK, created_at, accepted_at); unique partial index prevents duplicate pending invites for the same email; RLS: owner-only read/write (service-role client bypasses for signup check)
+- `src/lib/types.ts` — added `Invite` interface
+- `src/app/invites/actions.ts` — `createInvite` (checks for existing account, unique constraint, owner-only guard) and `revokeInvite` server actions
+- `src/app/invites/layout.tsx` — auth guard + owner-role check (non-owners redirected to `/dashboard`)
+- `src/app/invites/page.tsx` — owner-only invite manager: email input + role picker (Partner / Team Member / Family), pending invite list with per-row Revoke buttons
+- `src/app/auth/actions.ts` — `signUp` now uses the service-role client to check the invites table before creating the account; first-ever signup (no owner exists yet) bypasses the gate; on success, applies the invite's role to the new user and stamps `accepted_at`; blocked users see "You need an invitation to join. Contact the admin."
+- `src/app/profile/layout.tsx` — auth guard + bottom nav wrapper
+- `src/app/profile/page.tsx` — profile page: avatar initial, display name, email, role badge; **Invite People** menu row visible only to owners; Recurring Jobs + Clients shortcuts; Sign Out button
+
+---
+
 ## Step 8 — Category Chips on Job Detail Page (April 2026)
 
 ### Added

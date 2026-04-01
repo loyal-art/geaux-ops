@@ -83,6 +83,17 @@ export interface RecurringSchedule {
   users:         { display_name: string | null } | null
 }
 
+export interface Invite {
+  id:          string
+  email:       string
+  role:        UserRole
+  invited_by:  string | null
+  created_at:  string
+  accepted_at: string | null
+  // Joined from users (invited_by)
+  users?: { display_name: string | null } | null
+}
+
 export interface JobComment {
   id:         string
   job_id:     string
