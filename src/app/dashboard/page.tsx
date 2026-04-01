@@ -17,10 +17,14 @@ function greeting(name: string) {
 function Stat({ value, label, color }: { value: number; label: string; color: string }) {
   return (
     <div
-      className="flex flex-col items-center px-4 py-2 rounded-2xl flex-1"
-      style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+      className="flex flex-col items-center px-4 py-4 rounded-2xl flex-1"
+      style={{
+        backgroundColor: '#1A1D27',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderTop: `2px solid ${color}40`,
+      }}
     >
-      <span className="text-xl font-bold" style={{ color }}>{value}</span>
+      <span className="text-2xl font-bold" style={{ color }}>{value}</span>
       <span className="text-[10px] tracking-wide uppercase mt-0.5" style={{ color: '#8B8F9E' }}>{label}</span>
     </div>
   )
@@ -75,10 +79,10 @@ export default async function DashboardPage() {
   return (
     <div className="max-w-lg mx-auto">
       {/* ── Header ── */}
-      <div className="px-5 pt-12 pb-6">
+      <div className="px-5 pt-14 pb-8">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold mb-0.5" style={{ color: '#E8E9ED' }}>
+            <h1 className="text-3xl font-extrabold mb-0.5 leading-tight" style={{ color: '#E8E9ED' }}>
               {greeting(displayName)}
             </h1>
             <p className="text-sm" style={{ color: '#8B8F9E' }}>{today}</p>
@@ -97,7 +101,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* ── Stats row ── */}
-      <div className="px-5 mb-6 flex gap-3">
+      <div className="px-5 mb-8 flex gap-3">
         <Stat value={inProgressCount} label="In Progress" color="#60A5FA" />
         <Stat value={completedToday}  label="Done Today"  color="#4ADE80" />
         <Stat value={urgentCount}     label="Urgent"      color="#F87171" />

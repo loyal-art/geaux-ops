@@ -23,8 +23,8 @@ function ClientCard({ client }: { client: Client }) {
   return (
     <Link
       href={`/clients/${client.id}`}
-      className="flex items-center gap-4 px-4 py-4 rounded-2xl transition-opacity active:opacity-70"
-      style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+      className="card-hover flex items-center gap-4 px-5 py-4 rounded-2xl active:opacity-70"
+      style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)' }}
     >
       {/* Avatar initial */}
       <div
@@ -164,7 +164,7 @@ export default async function ClientsPage() {
       <div className="px-5 pt-12 pb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: '#E8E9ED' }}>Clients</h1>
+            <h1 className="text-3xl font-extrabold" style={{ color: '#E8E9ED' }}>Clients</h1>
             <p className="text-sm mt-0.5" style={{ color: '#8B8F9E' }}>
               {clients.length} {clients.length === 1 ? 'client' : 'clients'}
               {totalProjects > 0 && ` · ${totalProjects} projects`}
@@ -185,26 +185,26 @@ export default async function ClientsPage() {
 
       {/* ── Stats row ── */}
       {clients.length > 0 && (
-        <div className="px-5 mb-6 flex gap-3">
+        <div className="px-5 mb-8 flex gap-3">
           <div
-            className="flex flex-col items-center px-4 py-2.5 rounded-2xl flex-1"
-            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+            className="flex flex-col items-center px-4 py-4 rounded-2xl flex-1"
+            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)', borderTop: '2px solid rgba(200,164,78,0.4)' }}
           >
-            <span className="text-xl font-bold" style={{ color: '#C8A44E' }}>{clients.length}</span>
+            <span className="text-2xl font-bold" style={{ color: '#C8A44E' }}>{clients.length}</span>
             <span className="text-[10px] tracking-wide uppercase mt-0.5" style={{ color: '#8B8F9E' }}>Clients</span>
           </div>
           <div
-            className="flex flex-col items-center px-4 py-2.5 rounded-2xl flex-1"
-            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+            className="flex flex-col items-center px-4 py-4 rounded-2xl flex-1"
+            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)', borderTop: '2px solid rgba(74,222,128,0.4)' }}
           >
-            <span className="text-xl font-bold" style={{ color: '#4ADE80' }}>{activeProjects}</span>
+            <span className="text-2xl font-bold" style={{ color: '#4ADE80' }}>{activeProjects}</span>
             <span className="text-[10px] tracking-wide uppercase mt-0.5" style={{ color: '#8B8F9E' }}>Active</span>
           </div>
           <div
-            className="flex flex-col items-center px-4 py-2.5 rounded-2xl flex-1"
-            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+            className="flex flex-col items-center px-4 py-4 rounded-2xl flex-1"
+            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)', borderTop: '2px solid rgba(96,165,250,0.4)' }}
           >
-            <span className="text-xl font-bold" style={{ color: '#60A5FA' }}>{totalProjects}</span>
+            <span className="text-2xl font-bold" style={{ color: '#60A5FA' }}>{totalProjects}</span>
             <span className="text-[10px] tracking-wide uppercase mt-0.5" style={{ color: '#8B8F9E' }}>Projects</span>
           </div>
         </div>
