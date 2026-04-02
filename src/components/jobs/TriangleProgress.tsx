@@ -28,8 +28,9 @@ export function TriangleProgress({ progress, color, size = 'md' }: Props) {
   const fillH    = triH * pct
   const clipY    = 84 - fillH  // top of the fill rect
 
-  const fillColor = pct >= 1 ? '#4ADE80' : color
+  const fillColor   = pct >= 1 ? '#4ADE80' : color
   const fillOpacity = pct === 0 ? 0 : 0.25 + pct * 0.75
+  const showGlow    = pct > 0.6
 
   return (
     <svg
@@ -44,6 +45,15 @@ export function TriangleProgress({ progress, color, size = 'md' }: Props) {
         <clipPath id={`tri-clip-${id}`}>
           <rect x="0" y={clipY} width="100" height={fillH + 2} />
         </clipPath>
+        {showGlow && (
+          <filter id={`tri-glow-${id}`} x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        )}
       </defs>
 
       {/* Background triangle — dim outline */}
@@ -62,10 +72,11 @@ export function TriangleProgress({ progress, color, size = 'md' }: Props) {
           fill={fillColor}
           fillOpacity={fillOpacity}
           clipPath={`url(#tri-clip-${id})`}
+          filter={showGlow ? `url(#tri-glow-${id})` : undefined}
         />
       )}
 
-      {/* Bright top edge at 100% */}
+      {/* Bright outline at 100% */}
       {pct >= 1 && (
         <polygon
           points="50,4 96,84 4,84"
@@ -73,7 +84,8 @@ export function TriangleProgress({ progress, color, size = 'md' }: Props) {
           stroke="#4ADE80"
           strokeWidth="1.5"
           strokeLinejoin="round"
-          opacity="0.6"
+          opacity="0.7"
+          filter={`url(#tri-glow-${id})`}
         />
       )}
     </svg>

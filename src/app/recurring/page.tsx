@@ -58,10 +58,10 @@ function ScheduleCard({ schedule }: { schedule: RecurringSchedule }) {
 
   return (
     <div
-      className="rounded-2xl px-4 py-4"
+      className="card-hover rounded-2xl px-5 py-5"
       style={{
         backgroundColor: '#1A1D27',
-        border: `1px solid ${schedule.active ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)'}`,
+        border: `1px solid ${schedule.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)'}`,
         opacity: schedule.active ? 1 : 0.6,
       }}
     >
@@ -202,7 +202,7 @@ export default async function RecurringPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: '#E8E9ED' }}>Recurring Jobs</h1>
+          <h1 className="text-2xl font-extrabold" style={{ color: '#E8E9ED' }}>Recurring Jobs</h1>
           <p className="text-sm" style={{ color: '#8B8F9E' }}>
             {all.length === 0
               ? 'Auto-generate jobs on a schedule'

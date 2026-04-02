@@ -27,8 +27,8 @@ function MenuRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-4 px-4 py-4 rounded-2xl transition-opacity active:opacity-70"
-      style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+      className="card-hover flex items-center gap-4 px-5 py-4 rounded-2xl active:opacity-70"
+      style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)' }}
     >
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"

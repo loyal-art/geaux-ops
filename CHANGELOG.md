@@ -9,6 +9,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 10 — Design Polish Pass (April 2026)
+
+### Changed
+- `src/app/globals.css` — added `.card-hover` utility class: `translateY(-2px)` lift + shadow deepens + border brightens on hover, with smooth 0.18s ease transitions
+- `src/components/jobs/TriangleProgress.tsx` — added SVG `feGaussianBlur` glow filter applied at `pct > 0.6`; 100% outline also gets the glow; fill opacity ramp unchanged
+- `src/components/jobs/JobCard.tsx` — `card-hover` on link wrapper; unassigned badge now gold (`rgba(200,164,78,0.14)` / `#C8A44E`) instead of dim grey; all status badge opacities bumped to 0.14; color strip `h-1` → `h-1.5`; card padding `p-4` → `p-5`; base border `rgba(255,255,255,0.05)` → `rgba(255,255,255,0.06)`
+- `src/components/dashboard/DashboardFeed.tsx` — category tabs redesigned as filled pills (`rounded-full`); active pill: gold bg `#C8A44E`, dark text, gold glow `boxShadow`; inactive pill: subtle surface bg; removed underline bar; tab gap `0.5` → `2`; section spacing `mb-4` → `mb-5`
+- `src/app/dashboard/page.tsx` — greeting `text-2xl font-bold` → `text-3xl font-extrabold`; header `pt-12 pb-6` → `pt-14 pb-8`; stats `py-2 text-xl` → `py-4 text-2xl`; each stat card gets a colored `borderTop: 2px solid ${color}40`; stats row `mb-6` → `mb-8`
+- `src/app/clients/page.tsx` — `ClientCard` gets `card-hover`, padding `px-4` → `px-5`, border `0.05` → `0.06`; page title `text-2xl font-bold` → `text-3xl font-extrabold`; stat chips match dashboard style (`py-4`, `text-2xl`, colored top border)
+- `src/app/recurring/page.tsx` — `ScheduleCard` gets `card-hover`, padding `px-4 py-4` → `px-5 py-5`, border opacity `0.07` → `0.06`; page title `text-xl font-bold` → `text-2xl font-extrabold`
+- `src/app/profile/page.tsx` — `MenuRow` gets `card-hover`, padding `px-4` → `px-5`, border `0.05` → `0.06`
+
+---
+
 ## Step 9 — Invite System & User Onboarding Gate (April 2026)
 
 ### Added

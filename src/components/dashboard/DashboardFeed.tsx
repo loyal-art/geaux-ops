@@ -125,9 +125,9 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
   return (
     <div>
       {/* ── Category tabs ── */}
-      <div className="px-5 mb-4">
+      <div className="px-5 mb-5">
         <div
-          className="flex gap-0.5"
+          className="flex gap-2"
           style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
         >
           {TABS.map(t => {
@@ -136,12 +136,11 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
               <button
                 key={t.value}
                 onClick={() => handleTabChange(t.value)}
-                className="flex-shrink-0 px-4 py-2.5 text-xs font-semibold transition-all rounded-xl"
+                className="flex-shrink-0 px-4 py-2 text-xs font-bold rounded-full transition-all active:scale-95"
                 style={{
-                  backgroundColor: active ? 'rgba(200,164,78,0.14)' : 'transparent',
-                  color:           active ? '#C8A44E' : '#8B8F9E',
-                  borderBottom:    active ? '2px solid #C8A44E' : '2px solid transparent',
-                  borderRadius:    active ? '0.75rem 0.75rem 0 0' : '0.75rem',
+                  backgroundColor: active ? '#C8A44E' : 'rgba(255,255,255,0.06)',
+                  color:           active ? '#0F1117' : '#8B8F9E',
+                  boxShadow:       active ? '0 0 14px rgba(200,164,78,0.4)' : 'none',
                 }}
               >
                 {t.label}
@@ -149,8 +148,6 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
             )
           })}
         </div>
-        {/* Tab underline bar */}
-        <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)' }} />
       </div>
 
       {/* ── Search bar ── */}
