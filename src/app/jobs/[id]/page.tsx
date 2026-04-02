@@ -210,6 +210,24 @@ export default async function JobDetailPage({
             </p>
           </div>
         )}
+
+        {/* F2: Focus */}
+        {job.focus && (
+          <div
+            className="px-4 py-3 rounded-xl mb-2"
+            style={{
+              backgroundColor: 'rgba(167,139,250,0.06)',
+              borderLeft: '3px solid #A78BFA',
+            }}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#A78BFA' }}>
+              F2 — Focus
+            </p>
+            <p className="text-sm italic leading-relaxed" style={{ color: '#E8E9ED' }}>
+              {job.focus}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="px-5">

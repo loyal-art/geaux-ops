@@ -9,6 +9,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 11 — AI-Powered Job Creation Flow (April 2026)
+
+### Added
+- `src/app/jobs/ai/page.tsx` — new AI job creation page at `/jobs/ai` with two-phase flow: (1) four plain-text prompts (What's the job?, Who's this for?, What does finished look like?, What's your focus?), (2) editable preview of AI-generated title, steps, priority, and category with add/remove/reorder step controls
+- `src/app/api/ai/generate-job/route.ts` — server-side API route that calls the Anthropic Claude API (`claude-sonnet-4-20250514`) with a system prompt to generate structured job data (title, 5–15 actionable steps, priority, category) from user inputs; auth-gated, API key stays server-side only
+- `src/app/api/ai/create-job/route.ts` — server-side API route that persists the AI-generated job to the database with all steps; matches client name to existing clients and links to their project if found; saves F1 finish definition and F2 focus
+- `supabase/migrations/009_jobs_focus.sql` — `ALTER TABLE jobs ADD COLUMN focus text` to store the F2 Focus mindset answer
+- `@anthropic-ai/sdk` added to dependencies for server-side Claude API integration
+
+### Changed
+- `src/app/jobs/new/page.tsx` — added prominent "AI Generate" card at top of template picker with purple sparkle icon; links to `/jobs/ai` as an alternative to template-based job creation
+- `src/app/jobs/actions.ts` — `createJob` server action now reads and persists the `focus` field from form data
+- `src/app/jobs/[id]/page.tsx` — job detail page now displays F2 Focus block (purple accent) below the F1 Finish definition when present
+- `src/lib/types.ts` — added `focus: string | null` field to `Job` interface
+
+---
+
 ## Step 10 — Design Polish Pass (April 2026)
 
 ### Changed

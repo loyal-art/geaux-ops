@@ -259,6 +259,36 @@ export default async function NewJobPage({
         </div>
       </div>
 
+      {/* AI Generate option */}
+      <Link
+        href="/jobs/ai"
+        className="flex items-center gap-3 px-4 py-4 rounded-2xl transition-all active:scale-[0.98] card-hover mb-8"
+        style={{
+          backgroundColor: 'rgba(167,139,250,0.06)',
+          border: '1px solid rgba(167,139,250,0.15)',
+        }}
+      >
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: 'rgba(167,139,250,0.12)' }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold" style={{ color: '#A78BFA' }}>
+            AI Generate
+          </p>
+          <p className="text-[11px]" style={{ color: '#8B8F9E' }}>
+            Describe the job and let AI build the steps
+          </p>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round">
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </Link>
+
       <div className="space-y-8">
         {/* Business */}
         {business.length > 0 && (

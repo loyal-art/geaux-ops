@@ -37,6 +37,7 @@ export interface Job {
   title:             string
   client_name:       string | null
   finish_definition: string | null
+  focus:             string | null
   status:            JobStatus
   priority:          JobPriority
   assigned_to:       string | null
