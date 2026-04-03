@@ -9,6 +9,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 12 — User Management & Group Management (April 2026)
+
+### Added
+- `src/app/users/layout.tsx` — owner-only layout guard for `/users` route (non-owners redirected to `/dashboard`)
+- `src/app/users/actions.ts` — server actions: `updateUserRole` (owner-only, cannot change owner role), `addGroupMember`, `removeGroupMember`
+- `src/app/users/UserControls.tsx` — `'use client'` component with optimistic role pill selector and group checkbox toggles; uses `useTransition` for instant feedback
+- `src/app/users/page.tsx` — owner-only `/users` page: lists all registered users with avatar, display name, email, role badge, join date; associated clients derived from job assignments (orange pills); role change controls (pill buttons) and group assignment (toggleable checkboxes); owner row is read-only
+- `src/app/groups/manage/layout.tsx` — owner-only layout guard for `/groups/manage` route
+- `src/app/groups/manage/actions.ts` — server actions: `createGroup`, `updateGroup`, `addGroupMember`, `removeGroupMember`
+- `src/app/groups/manage/GroupEditor.tsx` — `'use client'` inline group editor: toggle edit mode for name/description, member list with per-member remove buttons, add-member dropdown with all non-member users
+- `src/app/groups/manage/page.tsx` — owner-only `/groups/manage` page: create group form (name + description), groups list with `GroupEditor` per group showing member count, member list, add/remove controls
+- `supabase/migrations/010_groups_rls_fix.sql` — drops the broad `groups_all_owner` / `group_members_all_owner` `FOR ALL` policies and replaces them with explicit INSERT/UPDATE/DELETE policies each with proper `WITH CHECK (is_owner())` for correct enforcement
+- `src/lib/types.ts` — added `Group` and `GroupMember` interfaces
+
+### Changed
+- `src/app/profile/page.tsx` — added **Manage Users** and **Manage Groups** `MenuRow` links (gold accent, owner-only, same pattern as Invite People)
+
+---
+
 ## Step 11 — AI-Powered Job Creation Flow (April 2026)
 
 ### Added
