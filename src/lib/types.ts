@@ -133,12 +133,19 @@ export interface Project {
   jobs?:    Array<{ id: string; status: JobStatus }>
 }
 
+export type GroupType = 'business' | 'household' | 'personal' | 'misc'
+
 export interface Group {
-  id:          string
-  name:        string
-  description: string | null
-  created_by:  string | null
-  created_at:  string
+  id:            string
+  name:          string
+  description:   string | null
+  type:          GroupType
+  contact_email: string | null
+  contact_phone: string | null
+  locations:     unknown[]
+  notes:         string | null
+  created_by:    string | null
+  created_at:    string
   // Joined
   group_members?: Array<{ user_id: string; users?: { display_name: string | null; email: string } | null }>
 }

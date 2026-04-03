@@ -49,7 +49,7 @@ function ProfileIcon({ active }: { active: boolean }) {
 
 const NAV = [
   { href: '/dashboard', label: 'Home',      Icon: HomeIcon },
-  { href: '/clients',   label: 'Clients',   Icon: ClientsIcon },
+  { href: '/people',    label: 'People',    Icon: ClientsIcon },
   { href: '/recurring', label: 'Recurring', Icon: RecurringIcon },
   { href: '/profile',   label: 'Profile',   Icon: ProfileIcon },
 ]

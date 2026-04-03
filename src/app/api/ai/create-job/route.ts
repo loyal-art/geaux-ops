@@ -15,19 +15,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Title and steps are required' }, { status: 400 })
   }
 
-  // Try to match client name to an existing client
-  let projectId: string | null = null
-  if (client_name) {
-    const { data: matchedClient } = await supabase
-      .from('clients')
-      .select('id, projects(id)')
-      .ilike('name', client_name.trim())
-      .limit(1)
-      .single()
+  // Try to match the "who's this for?" input against group names first,
+  // then fall back to storing as plain client_name text.
+  let groupId:    string | null = null
+  let projectId:  string | null = null
+  let resolvedClientName: string | null = client_name?.trim() || null
 
-    // If client has projects, link to the first one (user can change later)
-    if (matchedClient?.projects && Array.isArray(matchedClient.projects) && matchedClient.projects.length > 0) {
-      projectId = matchedClient.projects[0].id
+  if (client_name?.trim()) {
+    const term = client_name.trim()
+
+    // 1. Match against groups
+    const { data: matchedGroup } = await supabase
+      .from('groups')
+      .select('id, name')
+      .ilike('name', term)
+      .limit(1)
+      .maybeSingle()
+
+    if (matchedGroup) {
+      groupId = matchedGroup.id
+      resolvedClientName = null  // group link is sufficient; no need for text field
+    } else {
+      // 2. Fall back: match against legacy clients table (keep project link)
+      const { data: matchedClient } = await supabase
+        .from('clients')
+        .select('id, projects(id)')
+        .ilike('name', term)
+        .limit(1)
+        .maybeSingle()
+
+      if (matchedClient?.projects && Array.isArray(matchedClient.projects) && matchedClient.projects.length > 0) {
+        projectId = matchedClient.projects[0].id
+      }
     }
   }
 
@@ -36,7 +55,8 @@ export async function POST(request: Request) {
     .from('jobs')
     .insert({
       title: title.trim(),
-      client_name: client_name?.trim() || null,
+      client_name: resolvedClientName,
+      group_id: groupId,
       finish_definition: finish_definition?.trim() || null,
       focus: focus?.trim() || null,
       priority: priority || 'normal',
