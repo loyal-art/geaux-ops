@@ -9,6 +9,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 13 — People Hub & Group Model Refactor (April 2026)
+
+### Added
+- `supabase/migrations/011_groups_extended.sql` — adds `type` (business | household | personal | misc, NOT NULL DEFAULT 'business'), `contact_email`, `contact_phone`, `locations jsonb`, and `notes` columns to `public.groups`; notes that `jobs.group_id` and `jobs.client_name` were already nullable
+- `src/app/people/layout.tsx` — auth-gated layout for `/people` route with BottomNav
+- `src/app/people/PeopleFeed.tsx` — `'use client'` component with live search bar filtering both Groups and People sections; `GroupCard` links to group detail, shows type badge + contact email + member count; `PersonCard` shows role badge + group membership chips
+- `src/app/people/page.tsx` — `/people` server page fetching groups (with member counts) and all users (with group names); passes normalized data to `PeopleFeed`
+- `src/app/people/groups/[id]/layout.tsx` — auth-gated layout for group detail route
+- `src/app/people/groups/[id]/page.tsx` — group detail page at `/people/groups/[id]`: group header with type badge, contact info block (email + phone), notes, members list (role badge + role-in-group + join date), jobs section (active jobs with status dots + completed jobs at 60% opacity), all linking to `/jobs/[id]`
+- `src/lib/types.ts` — added `GroupType` union type; extended `Group` interface with `type`, `contact_email`, `contact_phone`, `locations`, `notes` fields
+
+### Changed
+- `src/components/ui/BottomNav.tsx` — renamed 'Clients' tab to 'People', href updated from `/clients` to `/people`
+- `src/app/api/ai/create-job/route.ts` — 'Who's this for?' now resolves against group names first (sets `group_id`, clears `client_name`); falls back to matching legacy clients table (sets `project_id`); unmatched input stored as plain `client_name` text
+- `src/app/profile/page.tsx` — Manage Groups link now points users toward `/groups/manage`
+
+---
+
 ## Step 12 — User Management & Group Management (April 2026)
 
 ### Added
