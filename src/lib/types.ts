@@ -132,3 +132,20 @@ export interface Project {
   clients?: { id: string; name: string } | null
   jobs?:    Array<{ id: string; status: JobStatus }>
 }
+
+export interface Group {
+  id:          string
+  name:        string
+  description: string | null
+  created_by:  string | null
+  created_at:  string
+  // Joined
+  group_members?: Array<{ user_id: string; users?: { display_name: string | null; email: string } | null }>
+}
+
+export interface GroupMember {
+  group_id:      string
+  user_id:       string
+  role_in_group: string | null
+  joined_at:     string
+}
