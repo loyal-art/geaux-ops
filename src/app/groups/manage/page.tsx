@@ -127,7 +127,8 @@ export default async function GroupsManagePage({
             <SectionHeader title="Groups" />
             <div className="space-y-3">
               {groups.map(g => {
-                type RawMember = { user_id: string; users: { id: string; display_name: string | null; email: string; role: string } | null }
+                type UserRow = { id: string; display_name: string | null; email: string; role: string }
+                type RawMember = { user_id: string; users: UserRow | UserRow[] | null }
                 const members = (g.group_members as RawMember[] ?? [])
 
                 return (
@@ -164,7 +165,10 @@ export default async function GroupsManagePage({
                       groupId={g.id}
                       groupName={g.name}
                       description={g.description}
-                      members={members.map(m => ({ user_id: m.user_id, users: m.users }))}
+                      members={members.map(m => ({
+                        user_id: m.user_id,
+                        users: Array.isArray(m.users) ? (m.users[0] ?? null) : m.users,
+                      }))}
                       allUsers={allUsers}
                     />
                   </div>
