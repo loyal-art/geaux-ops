@@ -9,6 +9,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 14 — Workspace & Team Model: Schema & Migrations (April 2026)
+
+> **Part 1 of 2 — schema and migrations only. UI changes deferred.**
+
+### Added
+- `supabase/migrations/012_groups_workspace_type.sql` — drops the auto-generated `groups_type_check` constraint from migration 011 and replaces it with an expanded set: `business | household | group | personal | misc`. Adds `group` as a first-class workspace type; retains `misc` for backward compatibility.
+- `supabase/migrations/013_teams.sql` — new `teams` table (`id uuid`, `group_id uuid FK → groups`, `name text`, `description text`, `created_by uuid FK → users`, `created_at timestamptz`); indexes on `group_id` and `created_at`; RLS: workspace owner/admin can manage (insert/update/delete), workspace members can view.
+- `supabase/migrations/014_team_memberships.sql` — new `team_memberships` table (`id uuid`, `team_id uuid FK → teams`, `user_id uuid FK → users`, `team_role text CHECK IN ('lead','member') DEFAULT 'member'`, `joined_at timestamptz`, unique on `(team_id, user_id)`); indexes on `team_id` and `user_id`; RLS: workspace owner/admin can manage, team members can view their own team.
+- `supabase/migrations/015_user_role_enum.sql` — adds `admin` (after `owner`), `manager` (after `partner`), `worker` (after `manager`), `viewer` (after `family_member`) to the `user_role` enum using `IF NOT EXISTS`; full set is now: `owner, admin, partner, manager, worker, team_member, family_member, viewer`.
+- `supabase/migrations/016_group_members_role_constraint.sql` — normalises any invalid `role_in_group` values to `viewer`, then adds `group_members_role_in_group_check` constraint enforcing `owner | admin | partner | manager | worker | viewer`; `NULL` is still permitted (inherits most-restrictive access).
+- `supabase/migrations/017_jobs_ownership.sql` — adds `owner_user_id uuid FK → users` (person accountable for the job) and `assigned_team_id uuid FK → teams` (team collectively responsible) to `public.jobs`; partial indexes on both columns.
+- `supabase/migrations/018_projects_ownership.sql` — same ownership columns (`owner_user_id`, `assigned_team_id`) added to `public.projects`; partial indexes on both columns.
+- `supabase/migrations/019_resolve_user_workspace_role.sql` — new helper function `resolve_user_workspace_role(p_user_id uuid, p_group_id uuid) returns text`; resolves explicit `group_members.role_in_group` first, falls back to `'owner'` for global app owners, returns `NULL` if no relationship.
+- `supabase/migrations/020_rls_role_hierarchy.sql` — replaces jobs/job_steps/job_comments RLS policies with role-aware versions:
+  - New helpers: `is_workspace_admin_or_above(group_id)` (owner/admin/partner) and `is_workspace_manager_or_above(group_id)` (+ manager).
+  - Updated `can_access_job()` to include `owner_user_id` and `assigned_team_id` team membership.
+  - **Jobs SELECT**: owner/admin/partner/manager/worker/viewer in workspace, plus creator, owner, assignee, and team members.
+  - **Jobs INSERT**: manager-or-above in workspace or privileged global role; workers cannot create jobs.
+  - **Jobs UPDATE**: manager-or-above in workspace, creator, owner_user_id, or assignee (workers can update their own jobs).
+  - **Jobs DELETE**: admin-or-above in workspace only.
+  - **Job Steps INSERT/DELETE**: manager-or-above or job owner/creator; workers cannot add/remove steps.
+  - **Job Steps UPDATE**: any job participant (workers can check off steps).
+  - **Job Comments INSERT**: any job participant including workers (F4 Follow-Up).
+  - **Job Comments DELETE**: own comment, or workspace admin-or-above.
+
+---
+
 ## Step 13 — People Hub & Group Model Refactor (April 2026)
 
 ### Added
