@@ -8,9 +8,13 @@ import type { UserRole } from '@/lib/types'
 
 const ROLE_STYLE: Record<UserRole, { label: string; bg: string; color: string }> = {
   owner:         { label: 'Owner',       bg: 'rgba(200,164,78,0.15)',  color: '#C8A44E' },
+  admin:         { label: 'Admin',       bg: 'rgba(200,164,78,0.15)',  color: '#C8A44E' },
   partner:       { label: 'Partner',     bg: 'rgba(167,139,250,0.15)', color: '#A78BFA' },
-  team_member:   { label: 'Team Member', bg: 'rgba(96,165,250,0.15)',  color: '#60A5FA' },
+  manager:       { label: 'Manager',     bg: 'rgba(251,146,60,0.15)',  color: '#FB923C' },
+  worker:        { label: 'Worker',      bg: 'rgba(96,165,250,0.15)',  color: '#60A5FA' },
+  team_member:   { label: 'Team Member', bg: 'rgba(56,189,248,0.15)',  color: '#38BDF8' },
   family_member: { label: 'Family',      bg: 'rgba(74,222,128,0.15)',  color: '#4ADE80' },
+  viewer:        { label: 'Viewer',      bg: 'rgba(139,143,158,0.15)', color: '#8B8F9E' },
 }
 
 // ── Menu row ──────────────────────────────────────────────────────────────────
