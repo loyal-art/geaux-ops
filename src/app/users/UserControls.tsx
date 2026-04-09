@@ -5,9 +5,13 @@ import { updateUserRole, addGroupMember, removeGroupMember } from './actions'
 import type { UserRole } from '@/lib/types'
 
 const ROLE_OPTIONS: { value: Exclude<UserRole, 'owner'>; label: string; color: string }[] = [
+  { value: 'admin',         label: 'Admin',       color: '#C8A44E' },
   { value: 'partner',       label: 'Partner',     color: '#A78BFA' },
-  { value: 'team_member',   label: 'Team Member', color: '#60A5FA' },
+  { value: 'manager',       label: 'Manager',     color: '#FB923C' },
+  { value: 'worker',        label: 'Worker',      color: '#60A5FA' },
+  { value: 'team_member',   label: 'Team Member', color: '#38BDF8' },
   { value: 'family_member', label: 'Family',      color: '#4ADE80' },
+  { value: 'viewer',        label: 'Viewer',      color: '#8B8F9E' },
 ]
 
 interface Group {

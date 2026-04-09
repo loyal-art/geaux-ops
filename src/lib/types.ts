@@ -1,4 +1,4 @@
-export type UserRole           = 'owner' | 'partner' | 'team_member' | 'family_member'
+export type UserRole           = 'owner' | 'admin' | 'partner' | 'manager' | 'worker' | 'team_member' | 'family_member' | 'viewer'
 export type JobStatus          = 'unassigned' | 'in_progress' | 'blocked' | 'cancelled' | 'completed' | 'archived'
 export type JobPriority        = 'urgent' | 'normal' | 'low'
 export type JobCategory        = 'business' | 'home' | 'personal' | 'misc'
