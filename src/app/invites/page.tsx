@@ -13,10 +13,14 @@ const ROLE_OPTIONS: { value: Exclude<UserRole, 'owner'>; label: string; desc: st
 ]
 
 const ROLE_COLOR: Record<string, string> = {
-  partner:       '#A78BFA',
-  team_member:   '#60A5FA',
-  family_member: '#4ADE80',
   owner:         '#C8A44E',
+  admin:         '#C8A44E',
+  partner:       '#A78BFA',
+  manager:       '#FB923C',
+  worker:        '#60A5FA',
+  team_member:   '#38BDF8',
+  family_member: '#4ADE80',
+  viewer:        '#8B8F9E',
 }
 
 // ── Section header ────────────────────────────────────────────────────────────

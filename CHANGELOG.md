@@ -9,6 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 15 — User Creation & Assignment Editing (April 2026)
+
+### Added
+- `src/app/users/new/page.tsx` — owner-only page at `/users/new` for creating user accounts directly via Supabase Admin API; form captures display name, email, temporary password, and global role (owner/admin/partner/manager/worker/team_member/family_member/viewer); creates auth user and users table row immediately without requiring an invite
+- `src/app/users/[id]/page.tsx` — owner-only user detail page at `/users/[id]` showing full user profile with avatar, role badge, and join date; fetches workspace memberships, team memberships, and all available workspaces/teams for assignment management
+- `src/app/users/[id]/UserDetailClient.tsx` — `'use client'` component with three sections: (1) Profile editor (display name + role pill selector with save), (2) Workspace Assignments (list with role dropdown, remove button, add-to-workspace with role picker), (3) Team Assignments (list with lead/member role dropdown, remove button, add-to-team with role picker); all actions use `useTransition` for optimistic updates
+- Server actions in `src/app/users/actions.ts`: `createUser` (Supabase Admin API), `updateUserProfile`, `addUserToWorkspace`, `removeUserFromWorkspace`, `updateWorkspaceRole`, `addUserToTeam`, `removeUserFromTeam`, `updateTeamRole`
+
+### Changed
+- `src/lib/types.ts` — expanded `UserRole` type to include all database enum values: `owner | admin | partner | manager | worker | team_member | family_member | viewer`
+- `src/app/users/page.tsx` — added "+ Create User" button in header linking to `/users/new`; each user card now links to `/users/[id]` detail page with hover chevron; role style map expanded to include admin, manager, worker, viewer roles
+- `src/app/users/UserControls.tsx` — role pill options expanded to include admin, manager, worker, and viewer roles
+- `src/app/users/actions.ts` — refactored with shared `requireOwner()` helper; added revalidation for `/users/[id]` paths; workspace/team actions use service client where needed for RLS bypass
+
+---
+
 ## Step 14 — Workspace & Team Model: Schema & Migrations (April 2026)
 
 > **Part 1 of 2 — schema and migrations only. UI changes deferred.**
