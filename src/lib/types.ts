@@ -156,3 +156,15 @@ export interface GroupMember {
   role_in_group: string | null
   joined_at:     string
 }
+
+export interface Contact {
+  id:         string
+  group_id:   string
+  name:       string
+  email:      string | null
+  phone:      string | null
+  company:    string | null
+  notes:      string | null
+  created_by: string | null
+  created_at: string
+}

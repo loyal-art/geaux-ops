@@ -9,6 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 16 — Remove Global Role & Contacts System (April 2026)
+
+### Added
+- `supabase/migrations/021_contacts.sql` — new `contacts` table (id uuid, group_id FK → groups, name text NOT NULL, email, phone, company, notes, created_by FK → users, created_at); indexes on group_id, created_at, and name; RLS: workspace members can view contacts in their workspace, manager-or-above can create/edit/delete
+- `src/lib/types.ts` — added `Contact` interface (id, group_id, name, email, phone, company, notes, created_by, created_at)
+- `src/app/people/groups/[id]/actions.ts` — server actions: `createContact`, `updateContact`, `deleteContact` for workspace contact CRUD
+- `src/app/people/groups/[id]/ContactsSection.tsx` — `'use client'` component with inline add/edit/delete for contacts; shows contact cards with name, company badge, email, phone; edit/delete buttons visible only for manager-or-above; add button in section header
+
+### Changed
+- `src/app/users/new/page.tsx` — removed global role picker (radio buttons for admin/partner/manager/worker/team_member/family_member/viewer); form now collects only name, email, and temporary password; added helper text explaining permissions come from workspace assignments
+- `src/app/users/actions.ts` — `createUser` no longer reads `role` from form data; new users default to `'worker'` on the users table since real permissions come from `group_members.role_in_group`
+- `src/app/people/groups/[id]/page.tsx` — added contacts data fetch and `ContactsSection` between Members and Jobs sections; checks current user's workspace role to determine contact management permissions
+- `src/app/api/ai/create-job/route.ts` — "Who's this for?" matching now checks contacts table names (step 2) between workspace names (step 1) and legacy clients (step 3); matched contact links job to the contact's workspace via `group_id` and preserves contact name as `client_name`
+
+---
+
 ## Step 15 — User Creation & Assignment Editing (April 2026)
 
 ### Added

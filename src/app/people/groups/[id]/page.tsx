@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import type { GroupType, UserRole, JobStatus } from '@/lib/types'
+import type { GroupType, UserRole, JobStatus, Contact } from '@/lib/types'
+import { ContactsSection } from './ContactsSection'
 
 // ── Type configs ───────────────────────────────────────────────────────────────
 
@@ -89,6 +90,27 @@ export default async function GroupDetailPage({
     .select('id, title, status, priority, client_name, created_at')
     .eq('group_id', id)
     .order('created_at', { ascending: false })
+
+  // Contacts in this workspace
+  const { data: contactsRaw } = await supabase
+    .from('contacts')
+    .select('*')
+    .eq('group_id', id)
+    .order('name')
+
+  const contacts = (contactsRaw ?? []) as Contact[]
+
+  // Check if current user is manager-or-above in this workspace (can manage contacts)
+  const { data: caller } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isOwner = caller?.role === 'owner'
+  const membership = ((group.group_members as Array<{ user_id: string; role_in_group: string | null }>) ?? [])
+    .find(m => m.user_id === user.id)
+  const canManageContacts = isOwner || ['owner', 'admin', 'partner', 'manager'].includes(membership?.role_in_group ?? '')
 
   const groupType = (group.type ?? 'misc') as GroupType
   const ts        = GROUP_TYPE[groupType]
@@ -253,6 +275,9 @@ export default async function GroupDetailPage({
             </div>
           )}
         </section>
+
+        {/* ── Contacts ── */}
+        <ContactsSection groupId={id} contacts={contacts} canManage={canManageContacts} />
 
         {/* ── Jobs ── */}
         <section className="pb-4">

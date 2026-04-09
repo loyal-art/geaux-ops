@@ -32,7 +32,6 @@ export async function createUser(formData: FormData) {
   const email       = (formData.get('email') as string)?.trim().toLowerCase()
   const displayName = (formData.get('display_name') as string)?.trim()
   const password    = formData.get('password') as string
-  const role        = formData.get('role') as UserRole
 
   if (!email || !password || !displayName) {
     redirect('/users/new?error=' + encodeURIComponent('Email, display name, and password are required'))
@@ -63,10 +62,11 @@ export async function createUser(formData: FormData) {
     redirect('/users/new?error=' + encodeURIComponent(createError.message))
   }
 
-  // The DB trigger auto-creates the users row, so update role and display_name
+  // The DB trigger auto-creates the users row, so update display_name
+  // Role defaults to 'worker' — real permissions come from group_members.role_in_group
   const { error: updateError } = await service
     .from('users')
-    .update({ role, display_name: displayName })
+    .update({ role: 'worker', display_name: displayName })
     .eq('id', authData.user.id)
 
   if (updateError) {

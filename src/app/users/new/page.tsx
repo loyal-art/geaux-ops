@@ -1,16 +1,5 @@
 import Link from 'next/link'
 import { createUser } from '../actions'
-import type { UserRole } from '@/lib/types'
-
-const ROLE_OPTIONS: { value: UserRole; label: string; desc: string; color: string }[] = [
-  { value: 'admin',         label: 'Admin',       desc: 'Workspace-level admin',      color: '#C8A44E' },
-  { value: 'partner',       label: 'Partner',     desc: 'Full access in workspaces',  color: '#A78BFA' },
-  { value: 'manager',       label: 'Manager',     desc: 'Manages teams & jobs',       color: '#FB923C' },
-  { value: 'worker',        label: 'Worker',      desc: 'Executes assigned work',     color: '#60A5FA' },
-  { value: 'team_member',   label: 'Team Member', desc: 'Team participation',         color: '#38BDF8' },
-  { value: 'family_member', label: 'Family',      desc: 'Household tasks only',       color: '#4ADE80' },
-  { value: 'viewer',        label: 'Viewer',      desc: 'Read-only access',           color: '#8B8F9E' },
-]
 
 export default async function NewUserPage({
   searchParams,
@@ -36,7 +25,7 @@ export default async function NewUserPage({
           <div>
             <h1 className="text-2xl font-bold" style={{ color: '#E8E9ED' }}>Create User</h1>
             <p className="text-sm mt-0.5" style={{ color: '#8B8F9E' }}>
-              Create an account directly — no invite needed
+              Create an account — permissions come from workspace assignments
             </p>
           </div>
         </div>
@@ -102,37 +91,9 @@ export default async function NewUserPage({
             </p>
           </div>
 
-          {/* Role */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-wider" style={{ color: '#8B8F9E' }}>
-              Global Role
-            </label>
-            <div className="space-y-2">
-              {ROLE_OPTIONS.map(opt => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
-                >
-                  <input
-                    type="radio"
-                    name="role"
-                    value={opt.value}
-                    defaultChecked={opt.value === 'worker'}
-                    className="sr-only peer"
-                  />
-                  <span
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all peer-checked:ring-2 peer-checked:ring-offset-1"
-                    style={{ backgroundColor: opt.color, ringOffsetColor: '#1A1D27' } as React.CSSProperties}
-                  />
-                  <span className="flex-1">
-                    <span className="block text-sm font-semibold" style={{ color: '#E8E9ED' }}>{opt.label}</span>
-                    <span className="block text-[11px]" style={{ color: '#8B8F9E' }}>{opt.desc}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
+          <p className="text-xs" style={{ color: '#8B8F9E' }}>
+            After creating the user, add them to workspaces and assign their role in each workspace.
+          </p>
 
           <button
             type="submit"
