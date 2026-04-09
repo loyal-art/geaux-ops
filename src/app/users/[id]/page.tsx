@@ -16,6 +16,13 @@ const ROLE_STYLE: Record<string, { label: string; color: string }> = {
   viewer:        { label: 'Viewer',      color: '#8B8F9E' },
 }
 
+// Supabase joins may return an object or a single-element array — normalize to object | null
+function unwrap<T>(val: T | T[] | null | undefined): T | null {
+  if (val == null) return null
+  if (Array.isArray(val)) return val[0] ?? null
+  return val
+}
+
 export default async function UserDetailPage({
   params,
 }: {
@@ -113,23 +120,31 @@ export default async function UserDetailPage({
           email={targetUser.email}
           role={role}
           isOwnerUser={role === 'owner'}
-          workspaceMemberships={(wsMemberships ?? []) as Array<{
-            group_id: string
-            role_in_group: string | null
-            groups: { name: string } | null
-          }>}
-          teamMemberships={(tmMemberships ?? []) as Array<{
-            team_id: string
-            team_role: string
-            teams: { id: string; name: string; group_id: string; groups?: { name: string } | null } | null
-          }>}
+          workspaceMemberships={(wsMemberships ?? []).map((m: Record<string, unknown>) => ({
+            group_id: m.group_id as string,
+            role_in_group: (m.role_in_group as string | null) ?? null,
+            groups: unwrap(m.groups as { name: string } | { name: string }[] | null),
+          }))}
+          teamMemberships={(tmMemberships ?? []).map((m: Record<string, unknown>) => {
+            const team = unwrap(m.teams as Record<string, unknown> | Record<string, unknown>[] | null)
+            return {
+              team_id: m.team_id as string,
+              team_role: m.team_role as string,
+              teams: team ? {
+                id: team.id as string,
+                name: team.name as string,
+                group_id: team.group_id as string,
+                groups: unwrap(team.groups as { name: string } | { name: string }[] | null),
+              } : null,
+            }
+          })}
           allWorkspaces={(allWorkspaces ?? []) as Array<{ id: string; name: string }>}
-          allTeams={(allTeams ?? []) as Array<{
-            id: string
-            name: string
-            group_id: string
-            groups?: { name: string } | null
-          }>}
+          allTeams={(allTeams ?? []).map((t: Record<string, unknown>) => ({
+            id: t.id as string,
+            name: t.name as string,
+            group_id: t.group_id as string,
+            groups: unwrap(t.groups as { name: string } | { name: string }[] | null),
+          }))}
         />
       </div>
     </div>
