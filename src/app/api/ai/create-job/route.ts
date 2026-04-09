@@ -36,16 +36,29 @@ export async function POST(request: Request) {
       groupId = matchedGroup.id
       resolvedClientName = null  // group link is sufficient; no need for text field
     } else {
-      // 2. Fall back: match against legacy clients table (keep project link)
-      const { data: matchedClient } = await supabase
-        .from('clients')
-        .select('id, projects(id)')
+      // 2. Match against contacts (external people in workspaces)
+      const { data: matchedContact } = await supabase
+        .from('contacts')
+        .select('id, name, group_id')
         .ilike('name', term)
         .limit(1)
         .maybeSingle()
 
-      if (matchedClient?.projects && Array.isArray(matchedClient.projects) && matchedClient.projects.length > 0) {
-        projectId = matchedClient.projects[0].id
+      if (matchedContact) {
+        groupId = matchedContact.group_id
+        resolvedClientName = matchedContact.name  // keep name for display
+      } else {
+        // 3. Fall back: match against legacy clients table (keep project link)
+        const { data: matchedClient } = await supabase
+          .from('clients')
+          .select('id, projects(id)')
+          .ilike('name', term)
+          .limit(1)
+          .maybeSingle()
+
+        if (matchedClient?.projects && Array.isArray(matchedClient.projects) && matchedClient.projects.length > 0) {
+          projectId = matchedClient.projects[0].id
+        }
       }
     }
   }
