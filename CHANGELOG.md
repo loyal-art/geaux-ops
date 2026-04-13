@@ -9,6 +9,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 19 — Job Completion Celebration & Team Notifications (April 2026)
+
+### Added
+- `canvas-confetti` + `@types/canvas-confetti` npm packages
+- `src/components/jobs/CompleteJobButton.tsx` — `'use client'` component that replaces the plain "Mark Complete" button:
+  - Calls `completeJob(jobId)` server action on click; shows loading state (`Saving…`) during the async call
+  - On success: fires a two-wave confetti burst (gold `#C8A44E`, green `#4ADE80`, yellow `#EAB308`, white) from center + flanks
+  - Simultaneously shows a full-screen modal overlay: "🎉 Well done!" headline (green), job title, step-count badge ("✓ N of N steps completed"), redirect hint
+  - After 3.5 s automatically navigates to `/dashboard` via `router.push`
+- `src/app/jobs/actions.ts` — new `completeJob(jobId)` server action:
+  - Updates `status = 'completed'` and `completed_at` for the job
+  - Uses `createServiceClient()` (service-role, bypasses RLS) for all notification writes
+  - Workspace notifications: inserts `job_completed` notification for every member of `job.group_id` with message `"{name} completed "{title}""`, de-duped by `user_id`; falls back to notifying just the completing user when no workspace is set
+  - Assigned-user notification: if `job.assigned_to` differs from the completing user, inserts a separate `job_completed_assigned` notification `"{name} completed your job: "{title}""` 
+  - Project nudge: if the job belongs to a project and that project has other jobs in `ready` or `queued` status, inserts a `next_job_ready` notification to all workspace members: `""{title}" is done — "{next title}" is ready to go."`
+  - All notification logic is wrapped in try/catch — errors are non-fatal and never surface to the user
+
+### Changed
+- `src/app/jobs/actions.ts` — imported `createServiceClient` from `@/lib/supabase/service`
+- `src/app/jobs/[id]/page.tsx` — "Mark Complete" `<StatusButton>` replaced with `<CompleteJobButton jobId title totalSteps completedSteps />`; imported `CompleteJobButton`
+
+---
+
 ## Step 18 — Job Statuses: Waiting, Ready, Queued (April 2026)
 
 ### Added

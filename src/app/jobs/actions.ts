@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { TemplateStep } from '@/lib/types'
@@ -214,5 +215,105 @@ export async function markJobWaiting(jobId: string, reason: string) {
 
   revalidatePath(`/jobs/${jobId}`)
   revalidatePath('/dashboard')
+  return { error: null }
+}
+
+// ── Complete Job (with confetti notifications) ────────────────────────────────
+//
+// Marks the job complete, then fires team notifications via the service-role
+// client (bypasses RLS so we can insert notifications for all workspace members).
+// Notification failures are non-fatal — the status update always takes priority.
+
+export async function completeJob(jobId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // 1. Mark complete
+  const { error: updateError } = await supabase
+    .from('jobs')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', jobId)
+
+  if (updateError) return { error: updateError.message }
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath('/dashboard')
+
+  // 2. Notifications (best-effort; never blocks the response)
+  try {
+    const service = createServiceClient()
+
+    const [{ data: completingUser }, { data: job }] = await Promise.all([
+      service.from('users').select('display_name').eq('id', user.id).single(),
+      service.from('jobs').select('title, group_id, assigned_to, project_id').eq('id', jobId).single(),
+    ])
+
+    if (!job) return { error: null }
+
+    const name           = completingUser?.display_name ?? 'Someone'
+    const completionMsg  = `${name} completed "${job.title}"`
+
+    // --- Workspace notifications ---
+    type NotifRow = { user_id: string; type: string; job_id: string; message: string }
+    const notifs: NotifRow[] = []
+
+    if (job.group_id) {
+      const { data: members } = await service
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', job.group_id)
+
+      for (const m of members ?? []) {
+        notifs.push({ user_id: m.user_id, type: 'job_completed', job_id: jobId, message: completionMsg })
+      }
+    }
+
+    // Ensure at least the completing user gets one
+    if (notifs.length === 0) {
+      notifs.push({ user_id: user.id, type: 'job_completed', job_id: jobId, message: completionMsg })
+    }
+
+    // Dedup by user_id
+    const seen    = new Set<string>()
+    const deduped = notifs.filter(n => { if (seen.has(n.user_id)) return false; seen.add(n.user_id); return true })
+    if (deduped.length > 0) await service.from('notifications').insert(deduped)
+
+    // --- Specific notification to assigned_to (if not the one completing) ---
+    if (job.assigned_to && job.assigned_to !== user.id) {
+      await service.from('notifications').insert({
+        user_id: job.assigned_to,
+        type:    'job_completed_assigned',
+        job_id:  jobId,
+        message: `${name} completed your job: "${job.title}"`,
+      })
+    }
+
+    // --- Project nudge: next ready/queued job in the same project ---
+    if (job.project_id && job.group_id) {
+      const { data: nextJobs } = await service
+        .from('jobs')
+        .select('title')
+        .eq('project_id', job.project_id)
+        .in('status', ['queued', 'ready'])
+        .neq('id', jobId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+
+      if (nextJobs && nextJobs.length > 0) {
+        const nudgeMsg      = `"${job.title}" is done — "${nextJobs[0].title}" is ready to go.`
+        const { data: members } = await service
+          .from('group_members').select('user_id').eq('group_id', job.group_id)
+
+        const nudges = (members ?? []).map(m => ({
+          user_id: m.user_id, type: 'next_job_ready', job_id: jobId, message: nudgeMsg,
+        }))
+        if (nudges.length > 0) await service.from('notifications').insert(nudges)
+      }
+    }
+  } catch {
+    // Notification errors never surface to the user
+  }
+
   return { error: null }
 }
