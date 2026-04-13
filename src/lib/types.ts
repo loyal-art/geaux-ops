@@ -51,7 +51,7 @@ export interface Job {
   // Joined from job_templates (Supabase may return array or single object)
   job_templates: Array<{ name: string; color: string }> | { name: string; color: string } | null
   // Joined from job_steps
-  job_steps: Array<{ id: string; done: boolean }>
+  job_steps: Array<{ id: string; done: boolean; completed_at: string | null }>
   // Optional join for project name (used in dashboard search)
   projects?: { name: string } | null
 }

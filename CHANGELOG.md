@@ -9,6 +9,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 17 — My Day Dashboard Feature (April 2026)
+
+### Added
+- `src/lib/hooks/useLocalStorage.ts` — generic SSR-safe `useLocalStorage<T>(key, defaultValue)` hook with try/catch for private browsing; initializes from `defaultValue` on server, hydrates from localStorage on mount to avoid mismatch
+- `src/components/dashboard/MyDaySection.tsx` — `'use client'` collapsible section at top of dashboard (above category tabs) with 5 conditional sub-sections:
+  - **Overdue** (red `#F87171`) — jobs where `due_date` is in the past, status not completed/archived
+  - **Due Today** (gold `#C8A44E`) — jobs where `due_date` is today
+  - **Today's Recurring** (blue `#60A5FA`) — jobs auto-generated today from active recurring schedules (matched via `template_id`)
+  - **Needs Attention** (orange `#FB923C`) — `in_progress` jobs with no steps checked off and no comment/activity in 3+ days (F4 nudge)
+  - **Almost Done** (green `#4ADE80`) — jobs at 80%+ step completion but not yet marked complete (F5 nudge)
+  - Empty sections hidden; when all sections empty, shows motivational "You're all caught up. Nice work." message with gold accent
+  - Expand/collapse state persists via `localStorage` key `geaux-myday-expanded`
+  - Collapse animation uses CSS `grid-template-rows: 0fr/1fr` transition
+- `src/components/dashboard/MyDayCard.tsx` — compact job card showing title, client/workspace name, progress percentage, and link to job detail; accent-colored left border per section
+- `src/components/profile/MyDayToggle.tsx` — `'use client'` toggle switch for "Make My Day your homepage" preference; stores `geaux-myday-homepage` in localStorage; when enabled, dashboard auto-expands My Day and scrolls to top on load
+
+### Changed
+- `src/lib/types.ts` — expanded `job_steps` array type in `Job` interface to include `completed_at: string | null` (for Needs Attention activity detection)
+- `src/app/dashboard/page.tsx` — expanded `JOB_SELECT` to include `job_steps.completed_at`; added Phase 2 parallel queries for latest `job_comments` per active job and active `recurring_schedules` template IDs; computes 5 My Day arrays (overdue, due today, today's recurring, needs attention, almost done); renders `<MyDaySection>` between stats row and `<DashboardFeed>`
+- `src/app/profile/page.tsx` — added "Preferences" section with `<MyDayToggle>` above the sign-out button
+
+---
+
 ## Step 16 — Remove Global Role & Contacts System (April 2026)
 
 ### Added

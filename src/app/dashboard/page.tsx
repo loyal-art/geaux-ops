@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DashboardFeed } from '@/components/dashboard/DashboardFeed'
+import { MyDaySection } from '@/components/dashboard/MyDaySection'
 import type { Job } from '@/lib/types'
 
 // ── Greeting ──────────────────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const JOB_SELECT = '*, job_templates(name, color), job_steps(id, done), projects(name)'
+  const JOB_SELECT = '*, job_templates(name, color), job_steps(id, done, completed_at), projects(name)'
 
   const [{ data: profile }, { data: activeRaw }, { data: completedRaw }] = await Promise.all([
     supabase
@@ -65,6 +66,96 @@ export default async function DashboardPage() {
 
   const activeJobs    = (activeRaw    ?? []) as unknown as Job[]
   const completedJobs = (completedRaw ?? []) as unknown as Job[]
+
+  // ── Phase 2: My Day supplemental queries ───────────────────────────────────
+  const activeJobIds = activeJobs.map(j => j.id)
+
+  const [{ data: recentComments }, { data: recurringSchedules }] = await Promise.all([
+    activeJobIds.length > 0
+      ? supabase
+          .from('job_comments')
+          .select('job_id, created_at')
+          .in('job_id', activeJobIds)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] as { job_id: string; created_at: string }[] }),
+
+    supabase
+      .from('recurring_schedules')
+      .select('template_id')
+      .eq('active', true),
+  ])
+
+  // Build lookup: latest comment per job
+  const latestCommentByJob = new Map<string, string>()
+  for (const c of recentComments ?? []) {
+    if (!latestCommentByJob.has(c.job_id)) {
+      latestCommentByJob.set(c.job_id, c.created_at)
+    }
+  }
+
+  // Build set of recurring template IDs
+  const recurringTemplateIds = new Set(
+    (recurringSchedules ?? []).map((s: { template_id: string }) => s.template_id),
+  )
+
+  // ── Compute My Day sections ────────────────────────────────────────────────
+  const now       = new Date()
+  const todayStr  = now.toDateString()
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+
+  const overdueJobs:         Job[] = []
+  const dueTodayJobs:        Job[] = []
+  const todaysRecurringJobs: Job[] = []
+  const needsAttentionJobs:  Job[] = []
+  const almostDoneJobs:      Job[] = []
+
+  for (const job of activeJobs) {
+    const isTerminal = job.status === 'completed' || job.status === 'archived'
+
+    // Overdue: due_date in the past, not completed/archived
+    if (job.due_date && !isTerminal && new Date(job.due_date) < todayStart) {
+      overdueJobs.push(job)
+    }
+
+    // Due Today: due_date is today, not completed/archived
+    if (job.due_date && !isTerminal && new Date(job.due_date).toDateString() === todayStr) {
+      dueTodayJobs.push(job)
+    }
+
+    // Today's Recurring: template matches active schedule, created today
+    if (job.template_id && recurringTemplateIds.has(job.template_id) && new Date(job.created_at).toDateString() === todayStr) {
+      todaysRecurringJobs.push(job)
+    }
+
+    // Needs Attention (F4 nudge): in_progress, no steps checked, no recent activity
+    if (job.status === 'in_progress') {
+      const steps = job.job_steps ?? []
+      const hasCheckedStep = steps.some(s => s.done)
+      if (!hasCheckedStep && steps.length > 0) {
+        const latestComment = latestCommentByJob.get(job.id)
+        const latestActivity = new Date(
+          Math.max(
+            new Date(job.created_at).getTime(),
+            latestComment ? new Date(latestComment).getTime() : 0,
+          ),
+        )
+        if (latestActivity < threeDaysAgo) {
+          needsAttentionJobs.push(job)
+        }
+      }
+    }
+
+    // Almost Done (F5 nudge): 80%+ steps done, not yet completed
+    if (job.status !== 'completed') {
+      const steps = job.job_steps ?? []
+      const total = steps.length
+      const done  = steps.filter(s => s.done).length
+      if (total > 0 && done / total >= 0.8) {
+        almostDoneJobs.push(job)
+      }
+    }
+  }
 
   // Stats — always reflect the full unfiltered counts (keep-as-is per spec)
   const inProgressCount = activeJobs.filter(j => j.status === 'in_progress').length
@@ -106,6 +197,15 @@ export default async function DashboardPage() {
         <Stat value={completedToday}  label="Done Today"  color="#4ADE80" />
         <Stat value={urgentCount}     label="Urgent"      color="#F87171" />
       </div>
+
+      {/* ── My Day ── */}
+      <MyDaySection
+        overdue={overdueJobs}
+        dueToday={dueTodayJobs}
+        todaysRecurring={todaysRecurringJobs}
+        needsAttention={needsAttentionJobs}
+        almostDone={almostDoneJobs}
+      />
 
       {/* ── Interactive feed (tabs + search + cards) ── */}
       <DashboardFeed activeJobs={activeJobs} completedJobs={completedJobs} />
