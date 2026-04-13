@@ -9,6 +9,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 18 — Job Statuses: Waiting, Ready, Queued (April 2026)
+
+### Added
+- `supabase/migrations/022_job_status_waiting_ready_queued.sql` — `ALTER TYPE job_status ADD VALUE IF NOT EXISTS` for `'waiting'` (after `in_progress`), `'ready'` (after `waiting`), and `'queued'` (after `ready`)
+- `src/components/jobs/MarkWaitingButton.tsx` — `'use client'` component used on the job detail page; renders a "Mark Waiting" button that expands inline to a textarea prompting "What are you waiting on?"; on submit calls `markJobWaiting` server action and refreshes the page via `router.refresh()`
+
+### Changed
+- `src/lib/types.ts` — `JobStatus` union extended: `'unassigned' | 'in_progress' | 'waiting' | 'ready' | 'queued' | 'blocked' | 'cancelled' | 'completed' | 'archived'`
+- `src/app/jobs/actions.ts` — added `markJobWaiting(jobId, reason)` server action: sets status to `'waiting'`, inserts an auto-generated comment `"Status changed to Waiting: {reason}"`, revalidates job and dashboard paths
+- `src/app/jobs/[id]/page.tsx`:
+  - `STATUS_STYLES` map expanded with `waiting` (yellow `#EAB308`), `ready` (blue `#60A5FA`), `queued` (dim purple `#8B8F9E`)
+  - Status controls restructured into two rows: Row 1 shows `<MarkWaitingButton>`, "Mark Ready", "Mark Queued" (hiding the button for the current status); Row 2 shows "Resume" (when job is blocked/waiting/ready/queued) or "Mark Blocked" (otherwise), plus "Mark Complete" and "Cancel"
+- `src/components/jobs/JobCard.tsx` — `STATUS_STYLES` extended with `waiting`, `ready`, `queued` entries matching the same color scheme
+- `src/app/people/groups/[id]/page.tsx` — `JOB_STATUS` map extended with `waiting` (yellow `#EAB308`), `ready` (blue `#60A5FA`), `queued` (dim `#8B8F9E`)
+- `src/components/dashboard/DashboardFeed.tsx`:
+  - Added `waiting`, `ready`, `queued` filter buckets alongside existing ones
+  - Dashboard section order: In Progress → Waiting → Ready → Queued → Blocked → Unassigned → Recently Completed
+  - `hasResults` guard updated to include new buckets
+- `src/app/dashboard/page.tsx`:
+  - Active jobs query `.in('status', [...])` expanded to include `'waiting'`, `'ready'`, `'queued'`
+  - Added `waitingFollowUpJobs` computation: `waiting` jobs where `latestActivity < threeDaysAgo` (same activity logic as Needs Attention)
+  - Passes `waitingFollowUp={waitingFollowUpJobs}` to `<MyDaySection>`
+- `src/components/dashboard/MyDaySection.tsx`:
+  - `Props` interface + component signature accept new `waitingFollowUp: Job[]` prop
+  - `totalItems` includes `waitingFollowUp.length`
+  - Renders a "⏳ Still Waiting? Time to follow up." sub-section (yellow `#EAB308`) after Needs Attention when `waitingFollowUp.length > 0`
+
+---
+
 ## Step 17 — My Day Dashboard Feature (April 2026)
 
 ### Added

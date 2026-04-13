@@ -7,6 +7,7 @@ import { AddStepForm } from '@/components/jobs/AddStepForm'
 import { CommentForm } from '@/components/jobs/CommentForm'
 import { updateJobStatus } from '@/app/jobs/actions'
 import { CategoryChips } from '@/components/jobs/CategoryChips'
+import { MarkWaitingButton } from '@/components/jobs/MarkWaitingButton'
 import type { JobStep, JobComment, JobStatus, JobCategory } from '@/lib/types'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -14,6 +15,9 @@ import type { JobStep, JobComment, JobStatus, JobCategory } from '@/lib/types'
 const STATUS_STYLES: Record<JobStatus, { label: string; bg: string; text: string }> = {
   unassigned:  { label: 'Unassigned',  bg: 'rgba(139,143,158,0.12)', text: '#8B8F9E' },
   in_progress: { label: 'In Progress', bg: 'rgba(96,165,250,0.12)',  text: '#60A5FA' },
+  waiting:     { label: 'Waiting',     bg: 'rgba(234,179,8,0.12)',   text: '#EAB308' },
+  ready:       { label: 'Ready',       bg: 'rgba(96,165,250,0.12)',  text: '#60A5FA' },
+  queued:      { label: 'Queued',      bg: 'rgba(139,143,158,0.12)', text: '#8B8F9E' },
   blocked:     { label: 'Blocked',     bg: 'rgba(248,113,113,0.12)', text: '#F87171' },
   cancelled:   { label: 'Cancelled',   bg: 'rgba(139,143,158,0.12)', text: '#8B8F9E' },
   completed:   { label: 'Completed',   bg: 'rgba(74,222,128,0.12)',  text: '#4ADE80' },
@@ -126,8 +130,9 @@ export default async function JobDetailPage({
   const templateName = tpl?.name  ?? 'Custom Task'
   const status       = STATUS_STYLES[job.status as JobStatus]
 
-  const isDone      = job.status === 'completed'
-  const isCancelled = job.status === 'cancelled'
+  const isDone       = job.status === 'completed'
+  const isCancelled  = job.status === 'cancelled'
+  const isResumable  = ['blocked', 'waiting', 'ready', 'queued'].includes(job.status)
 
   return (
     <div className="max-w-lg mx-auto">
@@ -270,15 +275,27 @@ export default async function JobDetailPage({
         {!isDone && !isCancelled && (
           <>
             <Divider label="Status" />
-            <div className="flex gap-2 pb-6">
-              {job.status !== 'blocked' && (
-                <StatusButton jobId={job.id} status="blocked"   label="Mark Blocked"   color="#F87171" bg="rgba(248,113,113,0.1)" />
-              )}
-              {job.status === 'blocked' && (
-                <StatusButton jobId={job.id} status="in_progress" label="Resume"        color="#60A5FA" bg="rgba(96,165,250,0.1)" />
-              )}
-              <StatusButton   jobId={job.id} status="completed" label="Mark Complete"  color="#4ADE80" bg="rgba(74,222,128,0.1)" />
-              <StatusButton   jobId={job.id} status="cancelled" label="Cancel"         color="#8B8F9E" bg="rgba(139,143,158,0.1)" />
+            <div className="pb-6 space-y-2">
+              {/* Row 1 — Waiting / Ready / Queued */}
+              <div className="flex gap-2">
+                {job.status !== 'waiting' && <MarkWaitingButton jobId={job.id} />}
+                {job.status !== 'ready'   && (
+                  <StatusButton jobId={job.id} status="ready"  label="Mark Ready"  color="#60A5FA" bg="rgba(96,165,250,0.1)" />
+                )}
+                {job.status !== 'queued'  && (
+                  <StatusButton jobId={job.id} status="queued" label="Mark Queued" color="#8B8F9E" bg="rgba(139,143,158,0.1)" />
+                )}
+              </div>
+              {/* Row 2 — Block / Resume / Complete / Cancel */}
+              <div className="flex gap-2">
+                {isResumable ? (
+                  <StatusButton jobId={job.id} status="in_progress" label="Resume"       color="#60A5FA" bg="rgba(96,165,250,0.1)" />
+                ) : (
+                  <StatusButton jobId={job.id} status="blocked"     label="Mark Blocked" color="#F87171" bg="rgba(248,113,113,0.1)" />
+                )}
+                <StatusButton jobId={job.id} status="completed" label="Mark Complete" color="#4ADE80" bg="rgba(74,222,128,0.1)" />
+                <StatusButton jobId={job.id} status="cancelled" label="Cancel"        color="#8B8F9E" bg="rgba(139,143,158,0.1)" />
+              </div>
             </div>
           </>
         )}

@@ -116,11 +116,17 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
   const filteredCompleted = filterJobs(completedJobs)
 
   const inProgress = filteredActive.filter(j => j.status === 'in_progress')
+  const waiting    = filteredActive.filter(j => j.status === 'waiting')
+  const ready      = filteredActive.filter(j => j.status === 'ready')
+  const queued     = filteredActive.filter(j => j.status === 'queued')
   const blocked    = filteredActive.filter(j => j.status === 'blocked')
   const unassigned = filteredActive.filter(j => j.status === 'unassigned')
 
   const hasAnyJobs = activeJobs.length > 0 || completedJobs.length > 0
-  const hasResults = inProgress.length > 0 || blocked.length > 0 || unassigned.length > 0 || filteredCompleted.length > 0
+  const hasResults =
+    inProgress.length > 0 || waiting.length > 0 || ready.length > 0 ||
+    queued.length > 0 || blocked.length > 0 || unassigned.length > 0 ||
+    filteredCompleted.length > 0
 
   return (
     <div>
@@ -254,6 +260,36 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
             <SectionHeader title="In Progress" />
             <div className="space-y-3">
               {inProgress.map(j => <JobCard key={j.id} job={j} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Waiting */}
+        {waiting.length > 0 && (
+          <section>
+            <SectionHeader title="Waiting" />
+            <div className="space-y-3">
+              {waiting.map(j => <JobCard key={j.id} job={j} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Ready */}
+        {ready.length > 0 && (
+          <section>
+            <SectionHeader title="Ready" />
+            <div className="space-y-3">
+              {ready.map(j => <JobCard key={j.id} job={j} />)}
+            </div>
+          </section>
+        )}
+
+        {/* Queued */}
+        {queued.length > 0 && (
+          <section>
+            <SectionHeader title="Queued" />
+            <div className="space-y-3">
+              {queued.map(j => <JobCard key={j.id} job={j} />)}
             </div>
           </section>
         )}
