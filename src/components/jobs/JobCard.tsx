@@ -111,12 +111,9 @@ export function JobCard({ job }: { job: Job }) {
           )}
         </div>
 
-        {/* Right: triangle progress */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-1 pt-1">
+        {/* Right: ramp progress */}
+        <div className="flex-shrink-0 flex items-end pt-1">
           <TriangleProgress progress={progress} color={color} size="md" />
-          <span className="text-[10px] font-medium" style={{ color: progress >= 1 ? '#4ADE80' : '#8B8F9E' }}>
-            {Math.round(progress * 100)}%
-          </span>
         </div>
       </div>
     </Link>
