@@ -139,7 +139,7 @@ export default async function GroupDetailPage({
   })
 
   const jobs = jobsRaw ?? []
-  const activeJobs    = jobs.filter(j => ['unassigned', 'in_progress', 'blocked'].includes(j.status))
+  const activeJobs    = jobs.filter(j => ['unassigned', 'in_progress', 'waiting', 'ready', 'queued', 'blocked'].includes(j.status))
   const completedJobs = jobs.filter(j => j.status === 'completed')
 
   return (

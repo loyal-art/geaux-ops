@@ -61,12 +61,15 @@ function StatusCycleButton({
 
 // ── Job status ordering ───────────────────────────────────────────────────────
 
-const STATUS_ORDER: JobStatus[] = ['in_progress', 'unassigned', 'blocked', 'completed', 'cancelled', 'archived']
+const STATUS_ORDER: JobStatus[] = ['in_progress', 'waiting', 'ready', 'queued', 'blocked', 'unassigned', 'completed', 'cancelled', 'archived']
 
 const STATUS_LABELS: Record<JobStatus, string> = {
   in_progress: 'In Progress',
-  unassigned:  'Unassigned',
+  waiting:     'Waiting',
+  ready:       'Ready',
+  queued:      'Queued',
   blocked:     'Blocked',
+  unassigned:  'Unassigned',
   completed:   'Completed',
   cancelled:   'Cancelled',
   archived:    'Archived',
