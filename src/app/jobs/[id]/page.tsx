@@ -8,6 +8,7 @@ import { CommentForm } from '@/components/jobs/CommentForm'
 import { updateJobStatus } from '@/app/jobs/actions'
 import { CategoryChips } from '@/components/jobs/CategoryChips'
 import { MarkWaitingButton } from '@/components/jobs/MarkWaitingButton'
+import { CompleteJobButton } from '@/components/jobs/CompleteJobButton'
 import type { JobStep, JobComment, JobStatus, JobCategory } from '@/lib/types'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -293,7 +294,12 @@ export default async function JobDetailPage({
                 ) : (
                   <StatusButton jobId={job.id} status="blocked"     label="Mark Blocked" color="#F87171" bg="rgba(248,113,113,0.1)" />
                 )}
-                <StatusButton jobId={job.id} status="completed" label="Mark Complete" color="#4ADE80" bg="rgba(74,222,128,0.1)" />
+                <CompleteJobButton
+                  jobId={job.id}
+                  jobTitle={job.title}
+                  totalSteps={totalSteps}
+                  completedSteps={completedSteps}
+                />
                 <StatusButton jobId={job.id} status="cancelled" label="Cancel"        color="#8B8F9E" bg="rgba(139,143,158,0.1)" />
               </div>
             </div>
