@@ -5,7 +5,7 @@ import { TriangleProgress } from '@/components/jobs/TriangleProgress'
 import { StepItem } from '@/components/jobs/StepItem'
 import { AddStepForm } from '@/components/jobs/AddStepForm'
 import { CommentForm } from '@/components/jobs/CommentForm'
-import { updateJobStatus } from '@/app/jobs/actions'
+import { updateJobStatus, reopenJob } from '@/app/jobs/actions'
 import { CategoryChips } from '@/components/jobs/CategoryChips'
 import { MarkWaitingButton } from '@/components/jobs/MarkWaitingButton'
 import { CompleteJobButton } from '@/components/jobs/CompleteJobButton'
@@ -312,6 +312,24 @@ export default async function JobDetailPage({
             <Divider label="Status" />
             <div className="pb-6">
               <StatusButton jobId={job.id} status="in_progress" label="Resume Job" color="#60A5FA" bg="rgba(96,165,250,0.1)" />
+            </div>
+          </>
+        )}
+
+        {/* Reopen completed job */}
+        {isDone && (
+          <>
+            <Divider label="Status" />
+            <div className="pb-6">
+              <form action={async () => { 'use server'; await reopenJob(job.id) }}>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-xl text-xs font-semibold transition-all active:scale-95"
+                  style={{ backgroundColor: 'rgba(96,165,250,0.1)', color: '#60A5FA', border: '1px solid rgba(96,165,250,0.3)' }}
+                >
+                  Reopen Job
+                </button>
+              </form>
             </div>
           </>
         )}
