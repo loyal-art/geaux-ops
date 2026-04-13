@@ -193,6 +193,36 @@ export async function updateJobStatus(jobId: string, status: string) {
   return { error: null }
 }
 
+// ── Reopen Job ────────────────────────────────────────────────────────────────
+
+export async function reopenJob(jobId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('display_name')
+    .eq('id', user.id)
+    .single()
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({ status: 'in_progress', completed_at: null })
+    .eq('id', jobId)
+
+  if (error) return { error: error.message }
+
+  const name = profile?.display_name ?? 'Unknown'
+  await supabase
+    .from('job_comments')
+    .insert({ job_id: jobId, user_id: user.id, text: `Job reopened by ${name}` })
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath('/dashboard')
+  return { error: null }
+}
+
 // ── Mark Job Waiting (with reason comment) ────────────────────────────────────
 
 export async function markJobWaiting(jobId: string, reason: string) {
