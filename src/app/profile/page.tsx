@@ -3,6 +3,10 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { signOut } from '@/app/auth/actions'
 import { MyDayToggle } from '@/components/profile/MyDayToggle'
+import { EditNameForm } from '@/components/profile/EditNameForm'
+import { ChangePasswordForm } from '@/components/profile/ChangePasswordForm'
+import { AvatarPicker } from '@/components/profile/AvatarPicker'
+import { getAvatarStyle } from '@/lib/avatarColors'
 import type { UserRole } from '@/lib/types'
 
 // ── Role badge ────────────────────────────────────────────────────────────────
@@ -16,6 +20,16 @@ const ROLE_STYLE: Record<UserRole, { label: string; bg: string; color: string }>
   team_member:   { label: 'Team Member', bg: 'rgba(56,189,248,0.15)',  color: '#38BDF8' },
   family_member: { label: 'Family',      bg: 'rgba(74,222,128,0.15)',  color: '#4ADE80' },
   viewer:        { label: 'Viewer',      bg: 'rgba(139,143,158,0.15)', color: '#8B8F9E' },
+}
+
+// ── Section divider ───────────────────────────────────────────────────────────
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: '#8B8F9E' }}>
+      {label}
+    </p>
+  )
 }
 
 // ── Menu row ──────────────────────────────────────────────────────────────────
@@ -59,18 +73,36 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('display_name, role, email, avatar_url')
-    .eq('id', user.id)
-    .single()
+  const [{ data: profile }, { data: membershipsRaw }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('display_name, role, email, avatar_url')
+      .eq('id', user.id)
+      .single(),
 
-  const displayName = profile?.display_name ?? user.email?.split('@')[0] ?? 'You'
-  const email       = profile?.email ?? user.email ?? ''
-  const role        = (profile?.role ?? 'family_member') as UserRole
-  const roleStyle   = ROLE_STYLE[role]
-  const initial     = displayName.charAt(0).toUpperCase()
-  const isOwner     = role === 'owner'
+    supabase
+      .from('group_members')
+      .select('role_in_group, groups(name)')
+      .eq('user_id', user.id),
+  ])
+
+  const displayName  = profile?.display_name ?? user.email?.split('@')[0] ?? 'You'
+  const email        = profile?.email ?? user.email ?? ''
+  const role         = (profile?.role ?? 'family_member') as UserRole
+  const roleStyle    = ROLE_STYLE[role]
+  const initial      = displayName.charAt(0).toUpperCase()
+  const isOwner      = role === 'owner'
+  const avatarStyle  = getAvatarStyle(profile?.avatar_url)
+  const avatarColor  = profile?.avatar_url ?? 'gold'
+
+  // Flatten workspace memberships
+  const workspaces = (membershipsRaw ?? []).map(m => {
+    const g = m.groups
+    const name = g
+      ? (Array.isArray(g) ? g[0]?.name : (g as { name: string }).name)
+      : 'Unknown workspace'
+    return { name: name ?? 'Unknown workspace', roleInGroup: m.role_in_group ?? 'viewer' }
+  })
 
   return (
     <div className="max-w-lg mx-auto">
@@ -82,7 +114,7 @@ export default async function ProfilePage() {
         <div className="flex items-center gap-4">
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0"
-            style={{ backgroundColor: 'rgba(200,164,78,0.15)', color: '#C8A44E' }}
+            style={{ backgroundColor: avatarStyle.bg, color: avatarStyle.color }}
           >
             {initial}
           </div>
@@ -99,8 +131,71 @@ export default async function ProfilePage() {
         </div>
       </div>
 
+      {/* ── Account Settings ── */}
+      <div className="px-5 mb-6">
+        <SectionLabel label="Account Settings" />
+
+        <div
+          className="rounded-2xl p-5 space-y-6"
+          style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          {/* Display name */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#8B8F9E' }}>
+              Display Name
+            </p>
+            <EditNameForm currentName={displayName} />
+          </div>
+
+          {/* Divider */}
+          <div className="h-px" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+
+          {/* Avatar picker */}
+          <AvatarPicker initial={initial} currentColor={avatarColor} />
+
+          {/* Divider */}
+          <div className="h-px" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+
+          {/* Change password */}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#8B8F9E' }}>
+              Change Password
+            </p>
+            <ChangePasswordForm />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Workspace Memberships ── */}
+      {workspaces.length > 0 && (
+        <div className="px-5 mb-6">
+          <SectionLabel label="Workspaces" />
+          <div className="space-y-2">
+            {workspaces.map((ws, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between px-4 py-3 rounded-xl"
+                style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                <p className="text-sm font-medium" style={{ color: '#E8E9ED' }}>{ws.name}</p>
+                <span
+                  className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full capitalize"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    color: '#8B8F9E',
+                  }}
+                >
+                  {ws.roleInGroup}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Menu ── */}
-      <div className="px-5 space-y-2">
+      <div className="px-5 space-y-2 mb-6">
+        <SectionLabel label="Admin" />
 
         {/* Invite People — owner only */}
         {isOwner && (
@@ -156,7 +251,17 @@ export default async function ProfilePage() {
           />
         )}
 
-        {/* Recurring schedules shortcut */}
+        {!isOwner && (
+          <p className="text-xs py-1" style={{ color: '#8B8F9E' }}>
+            No admin actions for your role.
+          </p>
+        )}
+      </div>
+
+      {/* ── Shortcuts ── */}
+      <div className="px-5 space-y-2 mb-6">
+        <SectionLabel label="Shortcuts" />
+
         <MenuRow
           href="/recurring"
           label="Recurring Jobs"
@@ -171,7 +276,6 @@ export default async function ProfilePage() {
           }
         />
 
-        {/* Clients shortcut */}
         <MenuRow
           href="/clients"
           label="Clients"
@@ -188,15 +292,13 @@ export default async function ProfilePage() {
       </div>
 
       {/* ── Preferences ── */}
-      <div className="px-5 mt-6">
-        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8F9E' }}>
-          Preferences
-        </p>
+      <div className="px-5 mb-6">
+        <SectionLabel label="Preferences" />
         <MyDayToggle />
       </div>
 
       {/* ── Sign out ── */}
-      <div className="px-5 mt-8">
+      <div className="px-5 mt-2">
         <form action={signOut}>
           <button
             type="submit"
@@ -209,7 +311,7 @@ export default async function ProfilePage() {
       </div>
 
       {/* ── App version ── */}
-      <p className="text-center text-[10px] mt-6 pb-4" style={{ color: '#8B8F9E' }}>
+      <p className="text-center text-[10px] mt-6 pb-24" style={{ color: '#8B8F9E' }}>
         Geaux Ops · Phase 2
       </p>
     </div>
