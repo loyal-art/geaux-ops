@@ -9,6 +9,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 20 — Ramp Progress Bar Redesign (April 2026)
+
+### Changed
+- `src/components/jobs/TriangleProgress.tsx` — complete redesign from equilateral triangle to a horizontal right-triangle ramp:
+  - **Shape**: right-triangle "ramp" (`points="0,40 120,40 120,0"` in viewBox `0 0 120 40`) — wide and low, zero on the left, peak on the right
+  - **Fill direction**: left → right via clipPath rect (`width = 120 * progress`)
+  - **Color by range**: 0% = dim `#2A2D37` (invisible), 1–25% = rust `#8B4513`, 26–50% = orange `#FB923C`, 51–75% = gold `#C8A44E`, 76–99% = lime `#9ACD32`, 100% = green `#4ADE80`
+  - **Pulsating glow**: a second polygon overlay drives the glow animation; uses class `ramp-glow-anim` while in-progress, `ramp-complete-anim` when complete — both powered by CSS `@keyframes` only (no JS animation loops)
+  - **Embedded percentage label**: percentage text rendered inside the SVG near the top-right peak (hidden for `size="sm"`)
+  - **Sizes updated** to match landscape aspect ratio — `sm: 64×22`, `md: 96×32`, `lg: 136×46`
+- `src/app/globals.css` — added `@keyframes ramp-glow-pulse` (0→0.95→0 opacity loop) and `@keyframes ramp-complete-pulse` (bright flash, then settle) with `.ramp-glow-anim` and `.ramp-complete-anim` utility classes
+- `src/components/jobs/JobCard.tsx` — removed the external percentage `<span>` below the ramp (percentage is now embedded in the SVG); updated container to `items-end` alignment
+
+---
+
 ## Step 19 — Job Completion Celebration & Team Notifications (April 2026)
 
 ### Added

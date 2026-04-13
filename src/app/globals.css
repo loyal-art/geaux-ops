@@ -48,3 +48,24 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   border-color: rgba(255, 255, 255, 0.12) !important;
 }
+
+/* ── Ramp progress bar animations ─────────────────────────────────────────── */
+
+@keyframes ramp-glow-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 0.95; }
+}
+
+.ramp-glow-anim {
+  animation: ramp-glow-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ramp-complete-pulse {
+  0%   { opacity: 0.8; }
+  30%  { opacity: 1; }
+  100% { opacity: 0.65; }
+}
+
+.ramp-complete-anim {
+  animation: ramp-complete-pulse 2.2s ease-out forwards;
+}
