@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { signOut } from '@/app/auth/actions'
+import { MyDayToggle } from '@/components/profile/MyDayToggle'
 import type { UserRole } from '@/lib/types'
 
 // ── Role badge ────────────────────────────────────────────────────────────────
@@ -184,6 +185,14 @@ export default async function ProfilePage() {
             </svg>
           }
         />
+      </div>
+
+      {/* ── Preferences ── */}
+      <div className="px-5 mt-6">
+        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8F9E' }}>
+          Preferences
+        </p>
+        <MyDayToggle />
       </div>
 
       {/* ── Sign out ── */}
