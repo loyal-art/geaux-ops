@@ -9,6 +9,7 @@ import { updateJobStatus, reopenJob } from '@/app/jobs/actions'
 import { CategoryChips } from '@/components/jobs/CategoryChips'
 import { MarkWaitingButton } from '@/components/jobs/MarkWaitingButton'
 import { CompleteJobButton } from '@/components/jobs/CompleteJobButton'
+import { getPermissions } from '@/lib/permissions'
 import type { JobStep, JobComment, JobStatus, JobCategory } from '@/lib/types'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -120,6 +121,23 @@ export default async function JobDetailPage({
   ])
 
   if (!job) notFound()
+
+  // ── Permissions: use workspace role if job belongs to a group ──────────────
+  let effectiveRole: string = 'viewer'
+  if (job.group_id) {
+    const { data: membership } = await supabase
+      .from('group_members')
+      .select('role_in_group')
+      .eq('group_id', job.group_id)
+      .eq('user_id', user.id)
+      .single()
+    effectiveRole = membership?.role_in_group ?? 'viewer'
+  } else {
+    const { data: profile } = await supabase
+      .from('users').select('role').eq('id', user.id).single()
+    effectiveRole = profile?.role ?? 'viewer'
+  }
+  const perms = getPermissions(effectiveRole)
 
   const steps          = ((job.job_steps ?? []) as JobStep[]).sort((a, b) => a.sort_order - b.sort_order)
   const totalSteps     = steps.length
@@ -249,11 +267,11 @@ export default async function JobDetailPage({
 
         <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
           {steps.map(step => (
-            <StepItem key={step.id} step={step} />
+            <StepItem key={step.id} step={step} readOnly={!perms.canToggleSteps} />
           ))}
         </div>
 
-        {!isDone && !isCancelled && <AddStepForm jobId={job.id} />}
+        {!isDone && !isCancelled && perms.canCreateSteps && <AddStepForm jobId={job.id} />}
 
         {/* ── Comments ── */}
         <Divider label="Comments (F4: Follow-Up)" />
@@ -270,10 +288,10 @@ export default async function JobDetailPage({
           ))}
         </div>
 
-        {!isCancelled && <CommentForm jobId={job.id} />}
+        {!isCancelled && perms.canComment && <CommentForm jobId={job.id} />}
 
         {/* ── Status Controls ── */}
-        {!isDone && !isCancelled && (
+        {!isDone && !isCancelled && perms.canChangeStatus && (
           <>
             <Divider label="Status" />
             <div className="pb-6 space-y-2">

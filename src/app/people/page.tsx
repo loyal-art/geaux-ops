@@ -1,12 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PeopleFeed } from './PeopleFeed'
+import { getUserEffectiveRole, getPermissions } from '@/lib/permissions'
 import type { GroupType, UserRole } from '@/lib/types'
 
 export default async function PeoplePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  const effectiveRole = await getUserEffectiveRole(supabase, user.id)
+  const { canManageUsers } = getPermissions(effectiveRole)
 
   // Groups with member count
   const { data: groupsRaw } = await supabase
@@ -60,7 +64,7 @@ export default async function PeoplePage() {
         </p>
       </div>
 
-      <PeopleFeed groups={groups} people={people} />
+      <PeopleFeed groups={groups} people={people} canManageUsers={canManageUsers} />
     </div>
   )
 }
