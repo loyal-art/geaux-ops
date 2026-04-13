@@ -9,6 +9,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 23 — Auto-Send Invite Email via Resend (April 2026)
+
+### Added
+- `resend` npm package installed for transactional email
+- `src/lib/email/sendInviteEmail.ts` — shared email utility:
+  - Instantiates `Resend` with `RESEND_API_KEY` (server-side env var); logs a warning and returns early if the key is not set
+  - Sends a branded HTML email with dark background (`#0F1117`), card surface (`#1A1D27`), and gold CTA button (`#C8A44E`)
+  - Email body includes inviter's name, assigned role (humanized, e.g. `team_member` → "Team Member"), recipient email address, and a direct link to `https://geaux-ops.vercel.app/signup`
+  - `from` address defaults to `Geaux Ops <onboarding@resend.dev>`; overridable via `RESEND_FROM_EMAIL` env var
+  - Returns `{ error: string | null }` — never throws
+- `src/app/api/email/invite/route.ts` — `POST /api/email/invite` API route accepting `{ to, inviterName, role, signupUrl? }` JSON body; returns 400 on bad input, 500 on send failure, 200 on success; delegates to `sendInviteEmail`
+
+### Changed
+- `src/app/invites/actions.ts` — `createInvite` now:
+  1. Selects `display_name` alongside `role` when fetching the caller's profile
+  2. After a successful DB insert, calls `sendInviteEmail` in a `try/catch` — errors are logged to the console but the invite is always created regardless
+  3. Imports `SIGNUP_URL = 'https://geaux-ops.vercel.app/signup'` as the signup link embedded in every invite email
+
+### Environment variables required
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `RESEND_API_KEY` | Yes | — | Resend API key (server-side only) |
+| `RESEND_FROM_EMAIL` | No | `Geaux Ops <onboarding@resend.dev>` | Sender address |
+
+---
+
 ## Step 22 — Profile Self-Service (April 2026)
 
 ### Added

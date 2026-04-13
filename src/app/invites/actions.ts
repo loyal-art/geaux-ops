@@ -3,6 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { sendInviteEmail } from '@/lib/email/sendInviteEmail'
+
+const SIGNUP_URL = 'https://geaux-ops.vercel.app/signup'
 
 // ── Create Invite ─────────────────────────────────────────────────────────────
 
@@ -19,7 +22,7 @@ export async function createInvite(formData: FormData) {
   // Confirm the caller is actually an owner (belt-and-suspenders over RLS)
   const { data: profile } = await supabase
     .from('users')
-    .select('role')
+    .select('role, display_name')
     .eq('id', user.id)
     .single()
 
@@ -43,6 +46,17 @@ export async function createInvite(formData: FormData) {
       ? 'A+pending+invite+already+exists+for+that+email'
       : encodeURIComponent(error.message)
     redirect(`/invites?error=${msg}`)
+  }
+
+  // ── Send invite email (best-effort — never blocks the invite) ─────────────
+  const inviterName = profile?.display_name ?? 'Your workspace owner'
+  try {
+    const emailResult = await sendInviteEmail({ to: email, inviterName, role, signupUrl: SIGNUP_URL })
+    if (emailResult.error) {
+      console.error('[createInvite] Email send failed (invite still created):', emailResult.error)
+    }
+  } catch (err) {
+    console.error('[createInvite] Unexpected email error (invite still created):', err)
   }
 
   revalidatePath('/invites')
