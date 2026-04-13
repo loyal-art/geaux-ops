@@ -98,7 +98,7 @@ function GroupCard({ group }: { group: GroupRow }) {
 
 // ── Person card ────────────────────────────────────────────────────────────────
 
-function PersonCard({ person }: { person: PersonRow }) {
+function PersonCard({ person, canManageUsers }: { person: PersonRow; canManageUsers: boolean }) {
   const role      = person.role ?? 'family_member'
   const roleStyle = ROLE_STYLE[role] ?? ROLE_STYLE.family_member
   const name      = person.display_name ?? person.email.split('@')[0]
@@ -137,6 +137,18 @@ function PersonCard({ person }: { person: PersonRow }) {
           ))}
         </div>
       </div>
+
+      {/* Manage link — owner only */}
+      {canManageUsers && (
+        <Link
+          href={`/users/${person.id}`}
+          className="flex-shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-opacity hover:opacity-70"
+          style={{ backgroundColor: 'rgba(200,164,78,0.1)', color: '#C8A44E', border: '1px solid rgba(200,164,78,0.2)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          Manage
+        </Link>
+      )}
     </div>
   )
 }
@@ -156,7 +168,7 @@ function SectionHeader({ title }: { title: string }) {
 
 // ── Feed ───────────────────────────────────────────────────────────────────────
 
-export function PeopleFeed({ groups, people }: { groups: GroupRow[]; people: PersonRow[] }) {
+export function PeopleFeed({ groups, people, canManageUsers }: { groups: GroupRow[]; people: PersonRow[]; canManageUsers: boolean }) {
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
 
@@ -220,7 +232,7 @@ export function PeopleFeed({ groups, people }: { groups: GroupRow[]; people: Per
             </p>
           ) : (
             <div className="space-y-2">
-              {filteredPeople.map(p => <PersonCard key={p.id} person={p} />)}
+              {filteredPeople.map(p => <PersonCard key={p.id} person={p} canManageUsers={canManageUsers} />)}
             </div>
           )}
         </section>

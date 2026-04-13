@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { BottomNav } from '@/components/ui/BottomNav'
+import { BottomNavServer } from '@/components/ui/BottomNavServer'
 
 export default async function InvitesLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -19,7 +19,7 @@ export default async function InvitesLayout({ children }: { children: React.Reac
   return (
     <div className="min-h-screen pb-24" style={{ backgroundColor: '#0F1117', color: '#E8E9ED' }}>
       {children}
-      <BottomNav />
+      <BottomNavServer />
     </div>
   )
 }

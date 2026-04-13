@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { frequencyLabel } from '@/lib/recurring'
 import { toggleScheduleActive, deleteRecurringSchedule } from './actions'
+import { getUserEffectiveRole, getPermissions } from '@/lib/permissions'
 import type { RecurringSchedule, RecurringFrequency } from '@/lib/types'
 
 // ── Frequency badge ───────────────────────────────────────────────────────────
@@ -179,13 +180,28 @@ export default async function RecurringPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const effectiveRole = await getUserEffectiveRole(supabase, user.id)
+  const perms = getPermissions(effectiveRole)
+  const isOwner = effectiveRole === 'owner'
 
-  const isOwner = profile?.role === 'owner'
+  // Workers and viewers cannot access recurring job management
+  if (!perms.canAccessRecurring) {
+    return (
+      <div className="max-w-lg mx-auto px-5 pt-12 pb-6 flex flex-col items-center text-center py-24">
+        <div className="mb-4 opacity-30">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </div>
+        <h2 className="text-lg font-bold mb-2" style={{ color: '#E8E9ED' }}>Access Restricted</h2>
+        <p className="text-sm max-w-xs" style={{ color: '#8B8F9E' }}>
+          Recurring job schedules are managed by owners, admins, partners, and managers.
+          Contact your workspace admin if you need access.
+        </p>
+      </div>
+    )
+  }
 
   const { data: schedules } = await supabase
     .from('recurring_schedules')

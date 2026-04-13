@@ -56,7 +56,7 @@ const NAV = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function BottomNav() {
+export function BottomNav({ canCreateJobs = true }: { canCreateJobs?: boolean }) {
   const pathname = usePathname()
 
   return (
@@ -86,24 +86,28 @@ export function BottomNav() {
           )
         })}
 
-        {/* Center create button */}
-        <Link
-          href="/jobs/new"
-          className="flex flex-col items-center flex-1 py-2"
-          aria-label="New Job"
-        >
-          <div
-            className="flex items-center justify-center w-12 h-12 rounded-2xl shadow-lg transition-transform active:scale-95"
-            style={{ backgroundColor: '#C8A44E' }}
+        {/* Center create button — hidden for workers / viewers */}
+        {canCreateJobs ? (
+          <Link
+            href="/jobs/new"
+            className="flex flex-col items-center flex-1 py-2"
+            aria-label="New Job"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1117" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </div>
-          <span className="text-[10px] font-medium tracking-wide mt-0.5" style={{ color: '#C8A44E' }}>
-            New
-          </span>
-        </Link>
+            <div
+              className="flex items-center justify-center w-12 h-12 rounded-2xl shadow-lg transition-transform active:scale-95"
+              style={{ backgroundColor: '#C8A44E' }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0F1117" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </div>
+            <span className="text-[10px] font-medium tracking-wide mt-0.5" style={{ color: '#C8A44E' }}>
+              New
+            </span>
+          </Link>
+        ) : (
+          <div className="flex-1" aria-hidden />
+        )}
 
         {/* Tasks + Profile */}
         {NAV.slice(2).map(({ href, label, Icon }) => {

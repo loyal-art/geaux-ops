@@ -4,11 +4,17 @@ import { useState, useTransition } from 'react'
 import { toggleStep } from '@/app/jobs/actions'
 import type { JobStep } from '@/lib/types'
 
-export function StepItem({ step }: { step: JobStep }) {
+interface StepItemProps {
+  step:      JobStep
+  readOnly?: boolean   // true for viewers — no toggle, no checkbox interaction
+}
+
+export function StepItem({ step, readOnly = false }: StepItemProps) {
   const [done, setDone]       = useState(step.done)
   const [isPending, startTransition] = useTransition()
 
   function handleToggle() {
+    if (readOnly) return
     const next = !done
     setDone(next)
     startTransition(async () => {
@@ -17,18 +23,15 @@ export function StepItem({ step }: { step: JobStep }) {
     })
   }
 
-  return (
-    <button
-      onClick={handleToggle}
-      disabled={isPending}
-      className="w-full flex items-start gap-3 py-3 text-left group transition-opacity disabled:opacity-60"
-    >
+  const inner = (
+    <>
       {/* Checkbox */}
       <div
         className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all"
         style={{
           backgroundColor: done ? '#4ADE80' : 'transparent',
           borderColor:     done ? '#4ADE80' : 'rgba(255,255,255,0.15)',
+          opacity: readOnly ? 0.5 : 1,
         }}
       >
         {done && (
@@ -62,6 +65,24 @@ export function StepItem({ step }: { step: JobStep }) {
           Focus
         </span>
       )}
+    </>
+  )
+
+  if (readOnly) {
+    return (
+      <div className="w-full flex items-start gap-3 py-3">
+        {inner}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={isPending}
+      className="w-full flex items-start gap-3 py-3 text-left group transition-opacity disabled:opacity-60"
+    >
+      {inner}
     </button>
   )
 }

@@ -9,6 +9,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 21 — Role-Based UI Filtering (April 2026)
+
+### Added
+- `src/lib/permissions.ts` — central permissions module:
+  - `ROLE_RANK` map: owner(6) → admin(5) → partner(4) → manager(3) → worker/team_member/family_member(2) → viewer(1)
+  - `Permissions` type with fields: `canCreateJobs`, `canEditJobs`, `canDeleteJobs`, `canManageUsers`, `canManageTemplates`, `canCreateSteps`, `canToggleSteps`, `canChangeStatus`, `canComment`, `canAccessRecurring`, `isViewerOnly`
+  - `getPermissions(role)` — pure function mapping a role string to a `Permissions` object
+  - `getUserEffectiveRole(supabase, userId)` — async helper that fetches both the global `users.role` and all `group_members.role_in_group` entries for the user, then returns the highest-ranked role string
+- `src/components/ui/BottomNavServer.tsx` — server component wrapper for `BottomNav` that fetches the user's effective role and passes `canCreateJobs` as a prop
+
+### Changed
+- `src/components/ui/BottomNav.tsx` — added optional `canCreateJobs` prop (default `true`); when `false` the centre "New" button is replaced with a neutral spacer so workers/viewers cannot create jobs
+- All 12 layout files (`dashboard`, `jobs`, `profile`, `people`, `people/groups/[id]`, `recurring`, `clients`, `projects/[id]`, `projects/new`, `users`, `invites`, `groups/manage`) — switched from `<BottomNav />` to `<BottomNavServer />` so role-based visibility is resolved server-side on every page
+- `src/components/jobs/StepItem.tsx` — added `readOnly?: boolean` prop; when `true` the step renders as a static `<div>` (no toggle, checkbox is dimmed) — applies to viewers
+- `src/app/jobs/[id]/page.tsx` — derives effective role from `group_members.role_in_group` for the job's workspace (falls back to `users.role` for unassigned jobs); applies `getPermissions`:
+  - `StepItem` receives `readOnly={!perms.canToggleSteps}` — viewers see read-only steps
+  - `AddStepForm` is hidden when `!perms.canCreateSteps` — workers/viewers cannot add steps
+  - `CommentForm` is hidden when `!perms.canComment` — viewers cannot comment
+  - All status-control sections gated on `perms.canChangeStatus` — viewers see no status buttons
+- `src/app/people/page.tsx` — fetches effective role and passes `canManageUsers` to `PeopleFeed`
+- `src/app/people/PeopleFeed.tsx` — `PersonCard` now accepts `canManageUsers`; when `true` a gold "Manage" link pointing to `/users/[id]` is shown on each person row (owner-only shortcut to the user detail page)
+- `src/app/recurring/page.tsx` — early-returns an "Access Restricted" notice for workers and viewers (rank < 3); owners continue to see the full recurring schedule manager
+
+---
+
 ## Step 20 — Ramp Progress Bar Redesign (April 2026)
 
 ### Changed
