@@ -9,6 +9,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 22 — Profile Self-Service (April 2026)
+
+### Added
+- `src/lib/avatarColors.ts` — shared color map for avatar circles (8 presets: gold, green, blue, purple, orange, red, teal, pink); `getAvatarStyle(avatarUrl)` returns `{ bg, color }` from the stored key string
+- `src/app/profile/actions.ts` — three server actions:
+  - `updateDisplayName(name)` — updates `public.users.display_name` and syncs `auth.updateUser` metadata; revalidates `/profile`
+  - `changePassword(password, confirm)` — server-validates match + min-6-chars, calls `supabase.auth.updateUser({ password })`
+  - `updateAvatarColor(colorKey)` — stores the chosen color key in `public.users.avatar_url`; revalidates `/profile`
+- `src/components/profile/EditNameForm.tsx` — `'use client'` form with pre-populated input, `useTransition`, and inline green/red feedback message
+- `src/components/profile/ChangePasswordForm.tsx` — `'use client'` form with two password fields, client-side match + length validation before calling the server action, inline success/error feedback, auto-clears fields on success
+- `src/components/profile/AvatarPicker.tsx` — `'use client'` 8-swatch color picker; shows user's initial in each color; selected swatch is highlighted with border + glow; calls `updateAvatarColor` immediately on tap; uses `AVATAR_COLORS` from `avatarColors.ts`
+
+### Changed
+- `src/app/profile/page.tsx` — full redesign of the profile page:
+  - **Avatar** now respects stored `avatar_url` color key via `getAvatarStyle()`; defaults to gold
+  - New **Account Settings** card (dark surface panel) containing `EditNameForm`, `AvatarPicker`, and `ChangePasswordForm` separated by thin dividers
+  - New **Workspaces** section: fetches `group_members` joined with `groups(name)`, renders each workspace name + `role_in_group` badge (read-only, informational)
+  - Admin links (Invite / Manage Users / Manage Groups) moved under a labelled **Admin** section header; non-owners see a "No admin actions for your role" note
+  - Navigation shortcuts (Recurring, Clients) moved under a **Shortcuts** section header
+  - Preferences and Sign Out sections retain their original behavior
+  - Parallel data fetch: profile + workspace memberships loaded with `Promise.all`
+
+---
+
 ## Step 21 — Role-Based UI Filtering (April 2026)
 
 ### Added
