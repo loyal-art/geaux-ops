@@ -50,7 +50,7 @@ export default async function DashboardPage() {
     supabase
       .from('jobs')
       .select(JOB_SELECT)
-      .in('status', ['unassigned', 'in_progress', 'blocked'])
+      .in('status', ['unassigned', 'in_progress', 'waiting', 'ready', 'queued', 'blocked'])
       .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -109,6 +109,7 @@ export default async function DashboardPage() {
   const todaysRecurringJobs: Job[] = []
   const needsAttentionJobs:  Job[] = []
   const almostDoneJobs:      Job[] = []
+  const waitingFollowUpJobs: Job[] = []
 
   for (const job of activeJobs) {
     const isTerminal = job.status === 'completed' || job.status === 'archived'
@@ -153,6 +154,20 @@ export default async function DashboardPage() {
       const done  = steps.filter(s => s.done).length
       if (total > 0 && done / total >= 0.8) {
         almostDoneJobs.push(job)
+      }
+    }
+
+    // Waiting Follow-Up: waiting jobs with no activity in 3+ days
+    if (job.status === 'waiting') {
+      const latestComment  = latestCommentByJob.get(job.id)
+      const latestActivity = new Date(
+        Math.max(
+          new Date(job.created_at).getTime(),
+          latestComment ? new Date(latestComment).getTime() : 0,
+        ),
+      )
+      if (latestActivity < threeDaysAgo) {
+        waitingFollowUpJobs.push(job)
       }
     }
   }
@@ -205,6 +220,7 @@ export default async function DashboardPage() {
         todaysRecurring={todaysRecurringJobs}
         needsAttention={needsAttentionJobs}
         almostDone={almostDoneJobs}
+        waitingFollowUp={waitingFollowUpJobs}
       />
 
       {/* ── Interactive feed (tabs + search + cards) ── */}

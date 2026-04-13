@@ -191,3 +191,28 @@ export async function updateJobStatus(jobId: string, status: string) {
   revalidatePath('/dashboard')
   return { error: null }
 }
+
+// ── Mark Job Waiting (with reason comment) ────────────────────────────────────
+
+export async function markJobWaiting(jobId: string, reason: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error: statusError } = await supabase
+    .from('jobs')
+    .update({ status: 'waiting' })
+    .eq('id', jobId)
+
+  if (statusError) return { error: statusError.message }
+
+  // Auto-generate a comment recording who/what the job is waiting on
+  const commentText = `Status changed to Waiting: ${reason}`
+  await supabase
+    .from('job_comments')
+    .insert({ job_id: jobId, user_id: user.id, text: commentText })
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath('/dashboard')
+  return { error: null }
+}

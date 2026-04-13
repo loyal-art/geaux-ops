@@ -7,6 +7,9 @@ import type { Job, JobStatus, JobPriority } from '@/lib/types'
 const STATUS_STYLES: Record<JobStatus, { label: string; bg: string; text: string }> = {
   unassigned:  { label: 'Unassigned',  bg: 'rgba(200,164,78,0.14)',  text: '#C8A44E'  },
   in_progress: { label: 'In Progress', bg: 'rgba(96,165,250,0.14)',  text: '#60A5FA'  },
+  waiting:     { label: 'Waiting',     bg: 'rgba(234,179,8,0.14)',   text: '#EAB308'  },
+  ready:       { label: 'Ready',       bg: 'rgba(96,165,250,0.14)',  text: '#60A5FA'  },
+  queued:      { label: 'Queued',      bg: 'rgba(139,143,158,0.14)', text: '#8B8F9E'  },
   blocked:     { label: 'Blocked',     bg: 'rgba(248,113,113,0.14)', text: '#F87171'  },
   cancelled:   { label: 'Cancelled',   bg: 'rgba(139,143,158,0.12)', text: '#8B8F9E'  },
   completed:   { label: 'Completed',   bg: 'rgba(74,222,128,0.14)',  text: '#4ADE80'  },

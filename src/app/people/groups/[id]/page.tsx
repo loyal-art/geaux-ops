@@ -27,6 +27,9 @@ const ROLE_STYLE: Record<UserRole, { label: string; bg: string; color: string }>
 const JOB_STATUS: Record<JobStatus, { label: string; color: string }> = {
   unassigned:  { label: 'Unassigned',  color: '#C8A44E' },
   in_progress: { label: 'In Progress', color: '#60A5FA' },
+  waiting:     { label: 'Waiting',     color: '#EAB308' },
+  ready:       { label: 'Ready',       color: '#60A5FA' },
+  queued:      { label: 'Queued',      color: '#8B8F9E' },
   blocked:     { label: 'Blocked',     color: '#F87171' },
   cancelled:   { label: 'Cancelled',   color: '#8B8F9E' },
   completed:   { label: 'Completed',   color: '#4ADE80' },

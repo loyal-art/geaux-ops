@@ -8,11 +8,12 @@ import type { Job } from '@/lib/types'
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  overdue:         Job[]
-  dueToday:        Job[]
-  todaysRecurring: Job[]
-  needsAttention:  Job[]
-  almostDone:      Job[]
+  overdue:          Job[]
+  dueToday:         Job[]
+  todaysRecurring:  Job[]
+  needsAttention:   Job[]
+  almostDone:       Job[]
+  waitingFollowUp:  Job[]
 }
 
 interface SubSectionProps {
@@ -74,12 +75,12 @@ function AllClear() {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function MyDaySection({ overdue, dueToday, todaysRecurring, needsAttention, almostDone }: Props) {
+export function MyDaySection({ overdue, dueToday, todaysRecurring, needsAttention, almostDone, waitingFollowUp }: Props) {
   const [expanded, setExpanded]     = useLocalStorage('geaux-myday-expanded', false)
   const [isHomepage]                = useLocalStorage('geaux-myday-homepage', false)
   const hasAutoExpanded             = useRef(false)
 
-  const totalItems = overdue.length + dueToday.length + todaysRecurring.length + needsAttention.length + almostDone.length
+  const totalItems = overdue.length + dueToday.length + todaysRecurring.length + needsAttention.length + almostDone.length + waitingFollowUp.length
   const allEmpty   = totalItems === 0
 
   // Auto-expand and scroll to top when "Make My Day your homepage" is enabled
@@ -149,6 +150,9 @@ export function MyDaySection({ overdue, dueToday, todaysRecurring, needsAttentio
                 )}
                 {needsAttention.length > 0 && (
                   <MyDaySubSection emoji="⏸" title="Needs Attention" color="#FB923C" jobs={needsAttention} />
+                )}
+                {waitingFollowUp.length > 0 && (
+                  <MyDaySubSection emoji="⏳" title="Still Waiting? Time to follow up." color="#EAB308" jobs={waitingFollowUp} />
                 )}
                 {almostDone.length > 0 && (
                   <MyDaySubSection emoji="🏁" title="Almost Done" color="#4ADE80" jobs={almostDone} />

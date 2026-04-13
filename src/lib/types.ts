@@ -1,5 +1,5 @@
 export type UserRole           = 'owner' | 'admin' | 'partner' | 'manager' | 'worker' | 'team_member' | 'family_member' | 'viewer'
-export type JobStatus          = 'unassigned' | 'in_progress' | 'blocked' | 'cancelled' | 'completed' | 'archived'
+export type JobStatus          = 'unassigned' | 'in_progress' | 'waiting' | 'ready' | 'queued' | 'blocked' | 'cancelled' | 'completed' | 'archived'
 export type JobPriority        = 'urgent' | 'normal' | 'low'
 export type JobCategory        = 'business' | 'home' | 'personal' | 'misc'
 export type RecurringFrequency = 'daily' | 'weekdays' | 'weekly' | 'monthly'
