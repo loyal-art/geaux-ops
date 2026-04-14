@@ -44,10 +44,11 @@ export interface Job {
   group_id:          string | null
   allowance_total:   number
   due_date:          string | null
-  created_by:        string | null
-  created_at:        string
-  completed_at:      string | null
-  archived_at:       string | null
+  created_by:          string | null
+  created_at:          string
+  completed_at:        string | null
+  archived_at:         string | null
+  submitted_via_portal: boolean
   // Joined from job_templates (Supabase may return array or single object)
   job_templates: Array<{ name: string; color: string }> | { name: string; color: string } | null
   // Joined from job_steps
@@ -96,11 +97,12 @@ export interface Invite {
 }
 
 export interface JobComment {
-  id:         string
-  job_id:     string
-  user_id:    string | null
-  text:       string
-  created_at: string
+  id:                string
+  job_id:            string
+  user_id:           string | null
+  text:              string
+  is_client_visible: boolean
+  created_at:        string
   // Joined from users
   users: { display_name: string | null } | null
 }

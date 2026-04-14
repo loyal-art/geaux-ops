@@ -28,17 +28,27 @@ export async function middleware(request: NextRequest) {
   // Refresh session if expired
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Protect all routes under /dashboard
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+  const { pathname } = request.nextUrl
+
+  // Protect /dashboard and /portal — redirect unauthenticated users to login
+  if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/portal'))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Redirect logged-in users away from auth pages
-  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/')) {
+  // Redirect logged-in users away from auth pages / root
+  if (user && (pathname === '/login' || pathname === '/')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+
+    // Check role to determine where to land
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    url.pathname = profile?.role === 'viewer' ? '/portal' : '/dashboard'
     return NextResponse.redirect(url)
   }
 

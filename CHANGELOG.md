@@ -9,6 +9,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 24 — Client Portal (April 2026)
+
+### Added
+- `supabase/migrations/023_client_portal.sql` — two schema additions:
+  - `job_comments.is_client_visible BOOLEAN DEFAULT false` — marks a comment as visible in the client portal; internal team notes stay hidden from clients
+  - `jobs.submitted_via_portal BOOLEAN DEFAULT false` — flags jobs that originated from the portal "Submit Request" flow for easy triage
+  - Partial indexes on both columns for efficient filtering
+- `src/app/portal/layout.tsx` — portal layout: dark background, no bottom nav; auth-gates the entire `/portal` tree
+- `src/app/portal/page.tsx` — portal landing page; shows all workspaces the viewer belongs to as tappable cards; top header with Geaux Ops logo + sign-out button
+- `src/app/portal/[workspaceId]/page.tsx` — portal workspace view: lists active jobs as clean cards (title, status badge, progress bar, last-updated date); "Submit a Request" gold CTA button at top
+- `src/app/portal/[workspaceId]/submit/page.tsx` — simplified request form with three prompts: *What do you need?*, *What does done look like?*, *Any deadline?*
+- `src/app/api/portal/submit/route.ts` — `POST /api/portal/submit` API route; verifies workspace membership, inserts job with `status=unassigned` and `submitted_via_portal=true`, revalidates dashboard + portal paths
+- `src/app/portal/jobs/[id]/page.tsx` — simplified job detail: title, status badge, progress bar, F1 finish definition panel, client message thread (only `is_client_visible=true` comments), inline message form
+- `src/app/portal/actions.ts` — two server actions:
+  - `submitPortalRequest(workspaceId, formData)` — creates a portal-submitted job (used as fallback; primary flow uses the API route)
+  - `addClientComment(jobId, workspaceId, formData)` — inserts a comment with `is_client_visible=true` so it appears in the portal thread
+
+### Changed
+- `src/app/auth/actions.ts`:
+  - `signIn()` — after successful login, queries the user's `role`; redirects to `/portal` for `viewer`, `/dashboard` for all others
+  - `signUp()` — after applying invite role, redirects `viewer` invitees to `/portal` instead of `/dashboard`
+- `src/middleware.ts`:
+  - Extends route protection to `/portal/*` (unauthenticated users redirected to `/login`)
+  - Root `/` and `/login` redirect for authenticated users now checks role via DB query; `viewer` → `/portal`, everyone else → `/dashboard`
+- `src/lib/types.ts`:
+  - `JobComment` — added `is_client_visible: boolean`
+  - `Job` — added `submitted_via_portal: boolean`
+
+---
+
 ## Step 23 — Auto-Send Invite Email via Resend (April 2026)
 
 ### Added
