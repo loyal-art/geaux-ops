@@ -5,7 +5,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — Phase 2: Multi-User & Client Management
+## [Unreleased] — Phase 3: Flow View
+
+---
+
+## Step 25 — Flow View Foundation (April 2026)
+
+### Added
+- `supabase/migrations/024_flow_view.sql` — `parent_step_id UUID` column on `job_steps` (FK → `job_steps(id) ON DELETE SET NULL`, nullable); creates a self-referential tree where top-level steps have `NULL` and child steps reference their parent; partial index on non-null values for efficient querying
+- `src/components/jobs/FlowView.tsx` — interactive SVG bubble flowchart (`'use client'`):
+  - **Radial layout algorithm**: top-level steps spread evenly around a full 360° circle at R1=170px from center; child steps fan out in a sub-arc at R2=120px from their parent, centered on the parent's outward direction
+  - **Center bubble**: gold-bordered circle with the job title (multi-line wrapped), outer pulse ring using template color
+  - **Step bubbles**: medium (r=38) for top-level, small (r=28) for children; labeled with wrapped text
+  - **Visual states**: completed = green filled + animated checkmark; high-impact/focus = gold glow border + pulse ring; pending = dim gray
+  - **SVG filters**: per-state glow filters (gold, green, center) using `feGaussianBlur` + `feMerge`
+  - **Tap to toggle**: clicking any step bubble calls `toggleStep` with optimistic UI update and revert on error
+  - **Pan**: drag the background to move; mouse and single-touch supported
+  - **Pinch-to-zoom**: two-finger pinch (mobile) or scroll wheel adjusts scale (0.2×–3×)
+  - **Controls**: reset-view, zoom-in, zoom-out buttons (bottom-right overlay)
+  - **Legend**: Done / Focus / Pending key (top-left, pointer-events none)
+  - **Empty state**: illustrated placeholder when job has no steps
+- `src/components/jobs/JobStepsSection.tsx` — client wrapper that owns the list/flow toggle:
+  - Reads and persists `'list' | 'flow'` preference in `localStorage` under key `geaux-ops:flow-view`
+  - Toggle pill (List / Flow) rendered inline with the "Steps" section divider
+  - In list mode: renders `StepItem` per step + `AddStepForm` (unchanged behavior)
+  - In flow mode: renders `FlowView` + `AddStepForm` below
+
+### Changed
+- `src/components/jobs/AddStepForm.tsx` — new optional `existingSteps?: JobStep[]` prop:
+  - When top-level steps exist, a collapsible "Add as child step" link appears below the text input
+  - Clicking it reveals a `<select>` of existing top-level steps; selecting one sets `parent_step_id` in the hidden form field; "Cancel" clears selection
+  - Adds `parent_step_id` hidden `<input>` so the server action can persist the tree relationship
+- `src/app/jobs/actions.ts` — `addStep` now reads `parent_step_id` from `FormData` and inserts it (null when blank/absent)
+- `src/app/jobs/[id]/page.tsx` — replaces the inline step list + `AddStepForm` with `<JobStepsSection ...>`, passing `steps`, `jobTitle`, `jobColor`, `jobId`, `readOnly`, `canCreateSteps`, `isDone`, `isCancelled`
+- `src/lib/types.ts` — `JobStep` now includes `parent_step_id: string | null`
 
 ---
 

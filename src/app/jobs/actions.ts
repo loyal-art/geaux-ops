@@ -108,8 +108,10 @@ export async function addStep(_: unknown, formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  const jobId = formData.get('job_id') as string
-  const text  = (formData.get('text') as string)?.trim()
+  const jobId        = formData.get('job_id') as string
+  const text         = (formData.get('text') as string)?.trim()
+  const parentStepId = (formData.get('parent_step_id') as string)?.trim() || null
+
   if (!text) return { error: 'Step text is required' }
 
   const { data: existing } = await supabase
@@ -123,7 +125,13 @@ export async function addStep(_: unknown, formData: FormData) {
 
   const { error } = await supabase
     .from('job_steps')
-    .insert({ job_id: jobId, text, sort_order: nextOrder, done: false })
+    .insert({
+      job_id:         jobId,
+      text,
+      sort_order:     nextOrder,
+      done:           false,
+      parent_step_id: parentStepId,
+    })
 
   if (error) return { error: error.message }
 
