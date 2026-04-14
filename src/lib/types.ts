@@ -60,6 +60,7 @@ export interface Job {
 export interface JobStep {
   id:               string
   job_id:           string
+  parent_step_id:   string | null
   text:             string
   done:             boolean
   is_high_impact:   boolean

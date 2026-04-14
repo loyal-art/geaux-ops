@@ -2,8 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { TriangleProgress } from '@/components/jobs/TriangleProgress'
-import { StepItem } from '@/components/jobs/StepItem'
-import { AddStepForm } from '@/components/jobs/AddStepForm'
+import { JobStepsSection } from '@/components/jobs/JobStepsSection'
 import { CommentForm } from '@/components/jobs/CommentForm'
 import { updateJobStatus, reopenJob } from '@/app/jobs/actions'
 import { CategoryChips } from '@/components/jobs/CategoryChips'
@@ -257,21 +256,16 @@ export default async function JobDetailPage({
       <div className="px-5">
 
         {/* ── Steps ── */}
-        <Divider label="Steps" />
-
-        {steps.length === 0 && (
-          <p className="text-sm text-center py-4" style={{ color: '#8B8F9E' }}>
-            No steps yet — add your first step below.
-          </p>
-        )}
-
-        <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-          {steps.map(step => (
-            <StepItem key={step.id} step={step} readOnly={!perms.canToggleSteps} />
-          ))}
-        </div>
-
-        {!isDone && !isCancelled && perms.canCreateSteps && <AddStepForm jobId={job.id} />}
+        <JobStepsSection
+          steps={steps}
+          jobTitle={job.title}
+          jobColor={color}
+          jobId={job.id}
+          readOnly={!perms.canToggleSteps}
+          canCreateSteps={perms.canCreateSteps}
+          isDone={isDone}
+          isCancelled={isCancelled}
+        />
 
         {/* ── Comments ── */}
         <Divider label="Comments (F4: Follow-Up)" />

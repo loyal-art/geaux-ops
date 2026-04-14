@@ -1,0 +1,509 @@
+'use client'
+
+import {
+  useState, useRef, useEffect, useTransition, useMemo, useLayoutEffect,
+} from 'react'
+import { toggleStep } from '@/app/jobs/actions'
+import type { JobStep } from '@/lib/types'
+
+// ── Text wrap helper ──────────────────────────────────────────────────────────
+
+function wrapText(text: string, maxChars: number, maxLines: number): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let current = ''
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i]
+    const test = current ? `${current} ${word}` : word
+    if (test.length <= maxChars) {
+      current = test
+    } else {
+      if (current) {
+        lines.push(current)
+        if (lines.length >= maxLines - 1 && i < words.length - 1) {
+          // last allowed line — truncate remaining
+          const rest = words.slice(i).join(' ')
+          lines.push(rest.length > maxChars ? rest.slice(0, maxChars - 1) + '…' : rest)
+          return lines
+        }
+        current = word
+      } else {
+        lines.push(word.slice(0, maxChars - 1) + '…')
+        current = ''
+      }
+    }
+  }
+  if (current && lines.length < maxLines) lines.push(current)
+  return lines.slice(0, maxLines)
+}
+
+// ── Node visual style by step state ──────────────────────────────────────────
+
+function nodeStyle(step: JobStep): {
+  fill: string; stroke: string; strokeW: number
+  textColor: string; glow: boolean; glowColor: string
+} {
+  if (step.done) return {
+    fill: 'rgba(74,222,128,0.18)', stroke: '#4ADE80', strokeW: 2.5,
+    textColor: '#4ADE80', glow: false, glowColor: '#4ADE80',
+  }
+  if (step.is_high_impact) return {
+    fill: 'rgba(200,164,78,0.14)', stroke: '#C8A44E', strokeW: 2,
+    textColor: '#C8A44E', glow: true, glowColor: '#C8A44E',
+  }
+  return {
+    fill: 'rgba(255,255,255,0.04)', stroke: 'rgba(255,255,255,0.18)', strokeW: 1.5,
+    textColor: '#E8E9ED', glow: false, glowColor: '#8B8F9E',
+  }
+}
+
+// ── Layout algorithm — radial tree ────────────────────────────────────────────
+// Top-level steps spread evenly around the center in a full 360° arc.
+// Children spread in a sub-arc pointing away from the center.
+
+interface PositionedNode {
+  step:     JobStep
+  x:        number
+  y:        number
+  r:        number   // bubble radius in px
+  level:    1 | 2
+  parentX?: number
+  parentY?: number
+}
+
+function layoutNodes(steps: JobStep[]): PositionedNode[] {
+  const R1 = 170   // center → top-level
+  const R2 = 120   // parent → child
+
+  const topLevel = steps
+    .filter(s => !s.parent_step_id)
+    .sort((a, b) => a.sort_order - b.sort_order)
+
+  const nodes: PositionedNode[] = []
+  const n = topLevel.length
+
+  topLevel.forEach((step, i) => {
+    // Evenly distribute around full circle, first node at 12 o'clock (−π/2)
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(n, 1)
+    const x = Math.cos(angle) * R1
+    const y = Math.sin(angle) * R1
+    nodes.push({ step, x, y, r: 38, level: 1 })
+
+    const children = steps
+      .filter(s => s.parent_step_id === step.id)
+      .sort((a, b) => a.sort_order - b.sort_order)
+
+    const m = children.length
+    // Spread children in ±angleStep arc centered on the parent's outward direction
+    const angleStep = Math.min(0.62, (Math.PI * 1.3) / Math.max(m + 1, 3))
+    const totalArc  = (m - 1) * angleStep
+
+    children.forEach((child, j) => {
+      const childAngle = angle - totalArc / 2 + j * angleStep
+      const cx = x + Math.cos(childAngle) * R2
+      const cy = y + Math.sin(childAngle) * R2
+      nodes.push({ step: child, x: cx, y: cy, r: 28, level: 2, parentX: x, parentY: y })
+    })
+  })
+
+  return nodes
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+interface Props {
+  steps:     JobStep[]
+  jobTitle:  string
+  jobColor:  string
+  readOnly?: boolean
+}
+
+// ── FlowView ──────────────────────────────────────────────────────────────────
+
+export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props) {
+  // Container dimensions (measured after mount for accurate centering)
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const [cw, setCw]   = useState(450)
+  const [ch, setCh]   = useState(420)
+
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const measure = () => { setCw(el.clientWidth); setCh(el.clientHeight) }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Pan / zoom state
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [scale, setScale]   = useState(1)
+
+  // Optimistic done-state map (synced from props; overridden during transitions)
+  const [doneMap, setDoneMap] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(steps.map(s => [s.id, s.done]))
+  )
+  const [, startTransition] = useTransition()
+
+  useEffect(() => {
+    setDoneMap(Object.fromEntries(steps.map(s => [s.id, s.done])))
+  }, [steps])
+
+  // Drag tracking
+  const dragging    = useRef(false)
+  const lastMouse   = useRef({ x: 0, y: 0 })
+
+  // Touch tracking
+  const touchPos    = useRef<{ x: number; y: number } | null>(null)
+  const touchDist   = useRef<number | null>(null)
+
+  // Non-passive touchmove to prevent page scroll while panning
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    function onTM(e: TouchEvent) {
+      if (e.touches.length === 1 && touchPos.current) {
+        e.preventDefault()
+        const dx = e.touches[0].clientX - touchPos.current.x
+        const dy = e.touches[0].clientY - touchPos.current.y
+        touchPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        setOffset(p => ({ x: p.x + dx, y: p.y + dy }))
+      } else if (e.touches.length === 2 && touchDist.current !== null) {
+        e.preventDefault()
+        const dx   = e.touches[1].clientX - e.touches[0].clientX
+        const dy   = e.touches[1].clientY - e.touches[0].clientY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const r    = dist / touchDist.current
+        setScale(s => Math.max(0.2, Math.min(3, s * r)))
+        touchDist.current = dist
+      }
+    }
+    el.addEventListener('touchmove', onTM, { passive: false })
+    return () => el.removeEventListener('touchmove', onTM)
+  }, [])
+
+  // ── Event handlers ────────────────────────────────────────────────────────
+
+  function onBgMouseDown(e: React.MouseEvent) {
+    dragging.current  = true
+    lastMouse.current = { x: e.clientX, y: e.clientY }
+    e.currentTarget.setAttribute('data-dragging', '1')
+  }
+
+  function onMouseMove(e: React.MouseEvent) {
+    if (!dragging.current) return
+    const dx = e.clientX - lastMouse.current.x
+    const dy = e.clientY - lastMouse.current.y
+    lastMouse.current = { x: e.clientX, y: e.clientY }
+    setOffset(p => ({ x: p.x + dx, y: p.y + dy }))
+  }
+
+  function onMouseUp(e: React.MouseEvent) {
+    dragging.current = false
+    e.currentTarget.removeAttribute('data-dragging')
+  }
+
+  function onWheel(e: React.WheelEvent) {
+    e.preventDefault()
+    const f = e.deltaY > 0 ? 0.92 : 1.08
+    setScale(s => Math.max(0.2, Math.min(3, s * f)))
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 1) {
+      touchPos.current  = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      touchDist.current = null
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX
+      const dy = e.touches[1].clientY - e.touches[0].clientY
+      touchDist.current = Math.sqrt(dx * dx + dy * dy)
+      touchPos.current  = null
+    }
+  }
+
+  function onTouchEnd() {
+    touchPos.current  = null
+    touchDist.current = null
+  }
+
+  function handleToggle(stepId: string) {
+    if (readOnly) return
+    const next = !(doneMap[stepId] ?? false)
+    setDoneMap(p => ({ ...p, [stepId]: next }))
+    startTransition(async () => {
+      const res = await toggleStep(stepId, next)
+      if (res?.error) setDoneMap(p => ({ ...p, [stepId]: !next }))
+    })
+  }
+
+  // ── Layout ────────────────────────────────────────────────────────────────
+
+  const nodes = useMemo(() => layoutNodes(steps), [steps])
+
+  // Merge optimistic done state into nodes
+  const renderedNodes = useMemo(
+    () => nodes.map(n => ({ ...n, step: { ...n.step, done: doneMap[n.step.id] ?? n.step.done } })),
+    [nodes, doneMap]
+  )
+
+  const centerLines = wrapText(jobTitle, 14, 3)
+  const COLOR       = jobColor || '#C8A44E'
+
+  // SVG group origin = center of container + pan offset
+  const tx = cw / 2 + offset.x
+  const ty = ch / 2 + offset.y
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative rounded-2xl select-none touch-none"
+      style={{
+        height:          420,
+        overflow:        'hidden',
+        backgroundColor: 'rgba(255,255,255,0.015)',
+        border:          '1px solid rgba(255,255,255,0.06)',
+        cursor:          dragging.current ? 'grabbing' : 'grab',
+      }}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      // wheel on container so it always fires even over nodes
+      onWheel={onWheel}
+    >
+      <svg
+        width="100%"
+        height="100%"
+        style={{ display: 'block', overflow: 'visible' }}
+        onMouseDown={onBgMouseDown}
+      >
+        <defs>
+          <filter id="fv-glow-gold" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="5" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="fv-glow-green" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="4" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="fv-glow-center" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="6" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
+        {/* ── All content in a transformed group for pan + zoom ── */}
+        <g transform={`translate(${tx}, ${ty}) scale(${scale})`}>
+
+          {/* ── Edge: center → top-level nodes ── */}
+          {renderedNodes.filter(n => n.level === 1).map(n => (
+            <line
+              key={`e0-${n.step.id}`}
+              x1={0} y1={0} x2={n.x} y2={n.y}
+              stroke="rgba(255,255,255,0.09)"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+            />
+          ))}
+
+          {/* ── Edge: top-level → child nodes ── */}
+          {renderedNodes.filter(n => n.level === 2).map(n => (
+            <line
+              key={`e1-${n.step.id}`}
+              x1={n.parentX ?? 0} y1={n.parentY ?? 0}
+              x2={n.x}            y2={n.y}
+              stroke="rgba(255,255,255,0.06)"
+              strokeWidth={1.2}
+              strokeLinecap="round"
+            />
+          ))}
+
+          {/* ── Step nodes ── */}
+          {renderedNodes.map(n => {
+            const s      = nodeStyle(n.step)
+            const lns    = wrapText(n.step.text, n.level === 1 ? 12 : 9, 2)
+            const lineH  = n.level === 1 ? 11 : 10
+            const fSize  = n.level === 1 ? 9.5 : 8.5
+
+            return (
+              <g
+                key={n.step.id}
+                transform={`translate(${n.x},${n.y})`}
+                onClick={e => { e.stopPropagation(); handleToggle(n.step.id) }}
+                onMouseDown={e => e.stopPropagation()}  // prevent pan start on node click
+                style={{ cursor: readOnly ? 'default' : 'pointer' }}
+              >
+                {/* Pulse glow ring for high-impact steps */}
+                {s.glow && (
+                  <circle
+                    r={n.r + 10} fill="none"
+                    stroke={s.glowColor} strokeWidth={1} opacity={0.2}
+                    className="animate-pulse"
+                  />
+                )}
+
+                {/* Bubble */}
+                <circle
+                  r={n.r}
+                  fill={s.fill}
+                  stroke={s.stroke}
+                  strokeWidth={s.strokeW}
+                  filter={
+                    n.step.done
+                      ? 'url(#fv-glow-green)'
+                      : s.glow
+                        ? 'url(#fv-glow-gold)'
+                        : undefined
+                  }
+                />
+
+                {/* Checkmark for completed */}
+                {n.step.done && (
+                  <path
+                    d={`M${-n.r*0.3},${-n.r*0.04} L${-n.r*0.08},${n.r*0.24} L${n.r*0.32},${-n.r*0.27}`}
+                    stroke="#4ADE80" strokeWidth={2.2}
+                    strokeLinecap="round" strokeLinejoin="round" fill="none"
+                  />
+                )}
+
+                {/* Label */}
+                {!n.step.done && (
+                  <text
+                    textAnchor="middle"
+                    fill={s.textColor}
+                    fontSize={fSize}
+                    fontWeight="500"
+                    style={{ fontFamily: 'inherit', pointerEvents: 'none', userSelect: 'none' }}
+                  >
+                    {lns.map((l, li) => (
+                      <tspan
+                        key={li}
+                        x={0}
+                        dy={li === 0 ? `${-((lns.length - 1) * lineH) / 2}px` : `${lineH}px`}
+                      >
+                        {l}
+                      </tspan>
+                    ))}
+                  </text>
+                )}
+              </g>
+            )
+          })}
+
+          {/* ── Center bubble (job title) ── */}
+          <g style={{ cursor: 'default' }} onMouseDown={e => e.stopPropagation()}>
+            {/* Outer pulse ring */}
+            <circle
+              r={64} fill="none"
+              stroke={COLOR} strokeWidth={1} opacity={0.12}
+              className="animate-pulse"
+            />
+            {/* Main bubble */}
+            <circle
+              r={52}
+              fill={`${COLOR}1A`}    /* hex + 10% alpha */
+              stroke={COLOR}
+              strokeWidth={2.5}
+              filter="url(#fv-glow-center)"
+            />
+            {/* Title text */}
+            <text
+              textAnchor="middle"
+              fill={COLOR}
+              fontSize={11}
+              fontWeight="700"
+              style={{ fontFamily: 'inherit', pointerEvents: 'none', userSelect: 'none' }}
+            >
+              {centerLines.map((l, li) => (
+                <tspan
+                  key={li}
+                  x={0}
+                  dy={li === 0 ? `${-((centerLines.length - 1) * 13) / 2}px` : '13px'}
+                >
+                  {l}
+                </tspan>
+              ))}
+            </text>
+          </g>
+
+        </g>
+      </svg>
+
+      {/* ── Controls overlay ── */}
+      <div
+        className="absolute bottom-3 right-3 flex gap-1.5"
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <button
+          onClick={() => { setOffset({ x: 0, y: 0 }); setScale(1) }}
+          title="Reset view"
+          className="w-7 h-7 rounded-lg flex items-center justify-center transition-opacity hover:opacity-80"
+          style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+        <button
+          onClick={() => setScale(s => Math.min(3, s * 1.3))}
+          title="Zoom in"
+          className="w-7 h-7 rounded-lg flex items-center justify-center transition-opacity hover:opacity-80"
+          style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
+          </svg>
+        </button>
+        <button
+          onClick={() => setScale(s => Math.max(0.2, s * 0.77))}
+          title="Zoom out"
+          className="w-7 h-7 rounded-lg flex items-center justify-center transition-opacity hover:opacity-80"
+          style={{ backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35M8 11h6" />
+          </svg>
+        </button>
+      </div>
+
+      {/* ── Legend ── */}
+      <div
+        className="absolute top-3 left-3 flex flex-col gap-1"
+        onMouseDown={e => e.stopPropagation()}
+        style={{ pointerEvents: 'none' }}
+      >
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#4ADE80' }} />
+          <span className="text-[9px] font-medium" style={{ color: '#8B8F9E' }}>Done</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full border" style={{ backgroundColor: 'rgba(200,164,78,0.14)', borderColor: '#C8A44E' }} />
+          <span className="text-[9px] font-medium" style={{ color: '#8B8F9E' }}>Focus</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <span className="text-[9px] font-medium" style={{ color: '#8B8F9E' }}>Pending</span>
+        </div>
+      </div>
+
+      {/* ── Empty state ── */}
+      {steps.length === 0 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-2">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(200,164,78,0.08)', border: '1px solid rgba(200,164,78,0.2)' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLOR} strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
+            </svg>
+          </div>
+          <p className="text-xs font-medium" style={{ color: '#8B8F9E' }}>Add steps to see the flow</p>
+        </div>
+      )}
+    </div>
+  )
+}
