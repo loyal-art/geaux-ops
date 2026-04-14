@@ -5,18 +5,28 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 
+async function getPostAuthRedirect(supabase: Awaited<ReturnType<typeof createClient>>, userId: string): Promise<string> {
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', userId)
+    .single()
+  return profile?.role === 'viewer' ? '/portal' : '/dashboard'
+}
+
 export async function signIn(_: unknown, formData: FormData) {
   const email    = formData.get('email') as string
   const password = formData.get('password') as string
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
     return { error: error.message }
   }
 
-  redirect('/dashboard')
+  const dest = data.user ? await getPostAuthRedirect(supabase, data.user.id) : '/dashboard'
+  redirect(dest)
 }
 
 export async function signUp(_: unknown, formData: FormData) {
@@ -79,7 +89,10 @@ export async function signUp(_: unknown, formData: FormData) {
     ])
   }
 
-  redirect('/dashboard')
+  // Redirect viewers to the client portal
+  const effectiveRole = inviteRole ?? 'owner'
+  const dest = effectiveRole === 'viewer' ? '/portal' : '/dashboard'
+  redirect(dest)
 }
 
 export async function signOut() {
