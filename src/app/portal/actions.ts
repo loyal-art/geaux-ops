@@ -11,7 +11,7 @@ import { redirect } from 'next/navigation'
 export async function submitPortalRequest(
   workspaceId: string,
   formData: FormData,
-) {
+): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -20,7 +20,8 @@ export async function submitPortalRequest(
   const finish      = (formData.get('finish') as string)?.trim() || null
   const deadline    = (formData.get('deadline') as string)?.trim() || null
 
-  if (!description) return { error: 'Please describe what you need.' }
+  // Form has required attribute on description, but guard here too
+  if (!description) redirect(`/portal/${workspaceId}/submit`)
 
   const { error } = await supabase.from('jobs').insert({
     title:                description,
@@ -34,7 +35,7 @@ export async function submitPortalRequest(
     submitted_via_portal: true,
   })
 
-  if (error) return { error: error.message }
+  if (error) throw new Error(error.message)
 
   revalidatePath(`/portal/${workspaceId}`)
   redirect(`/portal/${workspaceId}`)
@@ -43,13 +44,18 @@ export async function submitPortalRequest(
 // ── Add client comment ────────────────────────────────────────────────────────
 // Creates a job comment that is visible to clients (is_client_visible=true).
 
-export async function addClientComment(jobId: string, workspaceId: string, formData: FormData) {
+export async function addClientComment(
+  jobId: string,
+  workspaceId: string,
+  formData: FormData,
+): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const text = (formData.get('text') as string)?.trim()
-  if (!text) return { error: 'Comment cannot be empty.' }
+  // textarea has required — nothing to do if somehow empty
+  if (!text) return
 
   const { error } = await supabase.from('job_comments').insert({
     job_id:            jobId,
@@ -58,7 +64,7 @@ export async function addClientComment(jobId: string, workspaceId: string, formD
     is_client_visible: true,
   })
 
-  if (error) return { error: error.message }
+  if (error) throw new Error(error.message)
 
   revalidatePath(`/portal/jobs/${jobId}`)
 }
