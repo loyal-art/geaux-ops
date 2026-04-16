@@ -55,6 +55,15 @@ export interface Job {
   job_steps: Array<{ id: string; done: boolean; completed_at: string | null }>
   // Optional join for project name (used in dashboard search)
   projects?: { name: string } | null
+  // Optional join for step dependency data
+  step_dependencies?: StepDependency[]
+}
+
+export interface StepDependency {
+  id:                 string
+  step_id:            string
+  blocked_by_step_id: string
+  created_at:         string
 }
 
 export interface JobStep {
@@ -69,6 +78,8 @@ export interface JobStep {
   allowance_amount: number
   sort_order:       number
   created_at:       string
+  // Optional join for dependency data
+  dependencies?: StepDependency[]
 }
 
 export interface RecurringSchedule {

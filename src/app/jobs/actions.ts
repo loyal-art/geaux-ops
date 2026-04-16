@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import type { TemplateStep } from '@/lib/types'
+import type { TemplateStep, StepDependency } from '@/lib/types'
 
 // ── Create Job ────────────────────────────────────────────────────────────────
 
@@ -354,4 +354,143 @@ export async function completeJob(jobId: string) {
   }
 
   return { error: null }
+}
+
+// ── Step Dependencies ─────────────────────────────────────────────────────────
+
+// BFS to detect if adding (stepId depends on blockedByStepId) would create a cycle.
+// A cycle exists when stepId is reachable from blockedByStepId following blocked_by edges.
+async function hasCircularDependency(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  stepId: string,
+  blockedByStepId: string,
+): Promise<boolean> {
+  const visited = new Set<string>()
+  const queue   = [blockedByStepId]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (current === stepId) return true
+    if (visited.has(current))  continue
+    visited.add(current)
+
+    const { data } = await supabase
+      .from('step_dependencies')
+      .select('blocked_by_step_id')
+      .eq('step_id', current)
+
+    for (const dep of data ?? []) {
+      queue.push(dep.blocked_by_step_id)
+    }
+  }
+
+  return false
+}
+
+export async function addStepDependency(stepId: string, blockedByStepId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated', data: null }
+
+  if (await hasCircularDependency(supabase, stepId, blockedByStepId)) {
+    return { error: 'Adding this dependency would create a circular dependency', data: null }
+  }
+
+  const { data, error } = await supabase
+    .from('step_dependencies')
+    .insert({ step_id: stepId, blocked_by_step_id: blockedByStepId })
+    .select()
+    .single()
+
+  if (error) return { error: error.message, data: null }
+
+  const { data: step } = await supabase
+    .from('job_steps')
+    .select('job_id')
+    .eq('id', stepId)
+    .single()
+
+  if (step?.job_id) revalidatePath(`/jobs/${step.job_id}`)
+
+  return { error: null, data: data as StepDependency }
+}
+
+export async function removeStepDependency(dependencyId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: dep } = await supabase
+    .from('step_dependencies')
+    .select('step_id')
+    .eq('id', dependencyId)
+    .single()
+
+  const { error } = await supabase
+    .from('step_dependencies')
+    .delete()
+    .eq('id', dependencyId)
+
+  if (error) return { error: error.message }
+
+  if (dep?.step_id) {
+    const { data: step } = await supabase
+      .from('job_steps')
+      .select('job_id')
+      .eq('id', dep.step_id)
+      .single()
+
+    if (step?.job_id) revalidatePath(`/jobs/${step.job_id}`)
+  }
+
+  return { error: null }
+}
+
+export async function getStepDependencies(jobId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: 'Not authenticated' }
+
+  const { data: steps } = await supabase
+    .from('job_steps')
+    .select('id')
+    .eq('job_id', jobId)
+
+  if (!steps || steps.length === 0) return { data: [] as StepDependency[], error: null }
+
+  const stepIds = steps.map(s => s.id)
+
+  const { data, error } = await supabase
+    .from('step_dependencies')
+    .select('*')
+    .in('step_id', stepIds)
+
+  if (error) return { data: null, error: error.message }
+
+  return { data: data as StepDependency[], error: null }
+}
+
+// Returns the names of any incomplete blocker steps, or an empty array if unlocked.
+export async function isStepLocked(stepId: string): Promise<{ locked: boolean; blockerNames: string[] }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { locked: false, blockerNames: [] }
+
+  const { data: deps } = await supabase
+    .from('step_dependencies')
+    .select('blocked_by_step_id')
+    .eq('step_id', stepId)
+
+  if (!deps || deps.length === 0) return { locked: false, blockerNames: [] }
+
+  const blockerIds = deps.map(d => d.blocked_by_step_id)
+
+  const { data: incompleteBlockers } = await supabase
+    .from('job_steps')
+    .select('text')
+    .in('id', blockerIds)
+    .eq('done', false)
+
+  const blockerNames = (incompleteBlockers ?? []).map(s => s.text)
+  return { locked: blockerNames.length > 0, blockerNames }
 }
