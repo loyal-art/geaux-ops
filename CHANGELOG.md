@@ -9,6 +9,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 26 Part 1 — Flow View Dependency Editing: Database & Backend (April 2026)
+
+### Added
+- `supabase/migrations/025_step_dependencies.sql` — `step_dependencies` table:
+  - Columns: `id uuid PK`, `step_id uuid` (the blocked step), `blocked_by_step_id uuid` (must complete first), `created_at timestamptz`
+  - Both FK columns reference `job_steps(id) ON DELETE CASCADE`
+  - `UNIQUE(step_id, blocked_by_step_id)` constraint prevents duplicate edges
+  - `CHECK(step_id != blocked_by_step_id)` prevents self-dependencies
+  - Indexes on `step_id` and `blocked_by_step_id` for efficient lookups in both directions
+  - RLS enabled: SELECT matches `can_access_job()` (same as job_steps_select); INSERT and DELETE require manager-or-above or job owner/creator (mirrors job_steps_insert / job_steps_delete)
+- `src/app/jobs/actions.ts` — four new exports:
+  - `addStepDependency(stepId, blockedByStepId)` — runs BFS cycle detection before inserting; returns error if a circular dependency would result
+  - `removeStepDependency(dependencyId)` — deletes a dependency row and revalidates the job path
+  - `getStepDependencies(jobId)` — fetches all `StepDependency` rows for every step in the job
+  - `isStepLocked(stepId)` — returns `{ locked, blockerNames }` where `blockerNames` is the list of incomplete blocker step texts
+
+### Changed
+- `src/lib/types.ts`:
+  - New `StepDependency` interface (`id`, `step_id`, `blocked_by_step_id`, `created_at`)
+  - `JobStep` — added optional `dependencies?: StepDependency[]` field
+  - `Job` — added optional `step_dependencies?: StepDependency[]` field
+
+---
+
 ## Step 25 — Flow View Foundation (April 2026)
 
 ### Added
