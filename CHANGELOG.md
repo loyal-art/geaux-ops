@@ -9,6 +9,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 26 Part 2 — Flow View Dependency Editing: List View UI (April 2026)
+
+### Added
+- `src/components/jobs/StepItem.tsx` — full dependency UI in the checklist:
+  - **Lock indicator**: when any blocker is incomplete, the checkbox is replaced with a yellow lock icon and the step text is dimmed
+  - **"Blocked by" label**: shown below the step title when blockers exist; yellow with lock emoji when locked, muted gray/green when all blockers are complete
+  - **Lock-tap message**: tapping a locked step does not toggle it; instead shows a transient inline message ("Complete [blocker name] first") for 2.5 s
+  - **Manage-deps button**: small icon button (dependency graph SVG) to the right of each incomplete step; only shown to `canManageDeps` users (manager+); highlighted gold when panel is open
+  - **Inline `DependencyPanel`**: expands below the step row; lists current blockers with green/yellow dot + strikethrough for done; × remove button per blocker with optimistic removal and error revert; "Add blocker" dropdown filtered to non-self, non-duplicate steps; client-side optimistic adds with server confirmation; all changes call `addStepDependency` / `removeStepDependency` server actions
+  - **Unblock toast**: after marking a step done, if `toggleStep` returns `unlockedStepNames`, shows a green toast ("Unblocked [name]" / "Unblocked N steps") for 3.5 s
+- `src/app/jobs/actions.ts` — `toggleStep` extended: when marking done, performs BFS-style check for steps that were blocked solely by the just-completed step and returns `unlockedStepNames: string[]`
+
+### Changed
+- `src/components/jobs/JobStepsSection.tsx` — new optional props `allDependencies: StepDependency[]` and `canManageDeps: boolean` threaded through to each `StepItem`
+- `src/app/jobs/[id]/page.tsx` — fetches `step_dependencies` rows for all steps in the job after the primary job query; passes `allDependencies` and `canManageDeps={perms.canCreateSteps}` to `JobStepsSection`; imports `StepDependency` type
+
+---
+
 ## Step 26 Part 1 — Flow View Dependency Editing: Database & Backend (April 2026)
 
 ### Added

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { StepItem } from './StepItem'
 import { AddStepForm } from './AddStepForm'
 import { FlowView } from './FlowView'
-import type { JobStep } from '@/lib/types'
+import type { JobStep, StepDependency } from '@/lib/types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -54,14 +54,16 @@ function Divider({ label }: { label: string }) {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  steps:          JobStep[]
-  jobTitle:       string
-  jobColor:       string
-  jobId:          string
-  readOnly:       boolean
-  canCreateSteps: boolean
-  isDone:         boolean
-  isCancelled:    boolean
+  steps:            JobStep[]
+  jobTitle:         string
+  jobColor:         string
+  jobId:            string
+  readOnly:         boolean
+  canCreateSteps:   boolean
+  isDone:           boolean
+  isCancelled:      boolean
+  allDependencies?: StepDependency[]
+  canManageDeps?:   boolean
 }
 
 // ── JobStepsSection ───────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ const LS_KEY = 'geaux-ops:flow-view'
 
 export function JobStepsSection({
   steps, jobTitle, jobColor, jobId, readOnly, canCreateSteps, isDone, isCancelled,
+  allDependencies = [], canManageDeps = false,
 }: Props) {
   const [viewMode, setViewMode] = useState<'list' | 'flow'>('list')
   const [hydrated,  setHydrated] = useState(false)
@@ -150,7 +153,14 @@ export function JobStepsSection({
 
           <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
             {steps.map(step => (
-              <StepItem key={step.id} step={step} readOnly={readOnly} />
+              <StepItem
+                key={step.id}
+                step={step}
+                allSteps={steps}
+                allDependencies={allDependencies}
+                readOnly={readOnly}
+                canManageDeps={canManageDeps}
+              />
             ))}
           </div>
 

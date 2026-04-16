@@ -74,7 +74,7 @@ export async function createJob(formData: FormData) {
 export async function toggleStep(stepId: string, done: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  if (!user) return { error: 'Not authenticated', unlockedStepNames: [] as string[] }
 
   const { error } = await supabase
     .from('job_steps')
@@ -85,7 +85,7 @@ export async function toggleStep(stepId: string, done: boolean) {
     })
     .eq('id', stepId)
 
-  if (error) return { error: error.message }
+  if (error) return { error: error.message, unlockedStepNames: [] as string[] }
 
   const { data: step } = await supabase
     .from('job_steps')
@@ -98,7 +98,37 @@ export async function toggleStep(stepId: string, done: boolean) {
     revalidatePath('/dashboard')
   }
 
-  return { error: null }
+  // When marking done, find dependent steps that are now fully unblocked
+  const unlockedStepNames: string[] = []
+  if (done) {
+    const { data: dependentDeps } = await supabase
+      .from('step_dependencies')
+      .select('step_id')
+      .eq('blocked_by_step_id', stepId)
+
+    for (const dep of dependentDeps ?? []) {
+      const { data: allBlockers } = await supabase
+        .from('step_dependencies')
+        .select('blocked_by_step_id')
+        .eq('step_id', dep.step_id)
+
+      if (!allBlockers || allBlockers.length === 0) continue
+
+      const { data: incomplete } = await supabase
+        .from('job_steps')
+        .select('id')
+        .in('id', allBlockers.map(b => b.blocked_by_step_id))
+        .eq('done', false)
+
+      if (!incomplete || incomplete.length === 0) {
+        const { data: depStep } = await supabase
+          .from('job_steps').select('text').eq('id', dep.step_id).single()
+        if (depStep?.text) unlockedStepNames.push(depStep.text)
+      }
+    }
+  }
+
+  return { error: null, unlockedStepNames }
 }
 
 // ── Add Step ──────────────────────────────────────────────────────────────────
