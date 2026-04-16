@@ -9,7 +9,7 @@ import { CategoryChips } from '@/components/jobs/CategoryChips'
 import { MarkWaitingButton } from '@/components/jobs/MarkWaitingButton'
 import { CompleteJobButton } from '@/components/jobs/CompleteJobButton'
 import { getPermissions } from '@/lib/permissions'
-import type { JobStep, JobComment, JobStatus, JobCategory } from '@/lib/types'
+import type { JobStep, JobComment, JobStatus, JobCategory, StepDependency } from '@/lib/types'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
@@ -120,6 +120,13 @@ export default async function JobDetailPage({
   ])
 
   if (!job) notFound()
+
+  // ── Step dependencies (fetched after job so we have step IDs) ─────────────
+  const steps0 = (job.job_steps ?? []) as JobStep[]
+  const stepIds = steps0.map(s => s.id)
+  const allDependencies: StepDependency[] = stepIds.length > 0
+    ? (((await supabase.from('step_dependencies').select('*').in('step_id', stepIds)).data) ?? []) as StepDependency[]
+    : []
 
   // ── Permissions: use workspace role if job belongs to a group ──────────────
   let effectiveRole: string = 'viewer'
@@ -265,6 +272,8 @@ export default async function JobDetailPage({
           canCreateSteps={perms.canCreateSteps}
           isDone={isDone}
           isCancelled={isCancelled}
+          allDependencies={allDependencies}
+          canManageDeps={perms.canCreateSteps}
         />
 
         {/* ── Comments ── */}
