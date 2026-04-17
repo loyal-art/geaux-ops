@@ -9,6 +9,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 26 Part 3b — Flow View Dependency Editing: Edit Mode (April 2026)
+
+### Added
+- `src/components/jobs/FlowView.tsx` — interactive **Edit Dependencies** mode:
+  - **New `canManageDeps?: boolean` prop**; when `true` (manager+) an "Edit" button appears in the bottom-right controls overlay next to reset/zoom. The button flips to "Done" with a gold-tinted background when active
+  - **Edit-mode indicator**: while active, every bubble gets a subtle dashed-gold ring (`strokeDasharray="2 3"`, 45 % opacity) rendered outside the main bubble so it doesn't collide with the existing lock-mode dashed yellow stroke
+  - **Two-step create flow**: first bubble click sets `pendingSource`, which gets wrapped in a pulsing gold glow ring using the existing `fv-glow-gold` filter; the sub­sequent click on any other bubble calls `addStepDependency(target, source)` (target blocked by source). Clicking the same bubble twice, or clicking empty space on the SVG background, cancels the selection
+  - **Status banner**: a centered top pill announces the current edit-mode step — `"Edit: click a blocker bubble to start, or click a line to remove"` or `"Edit: click a target bubble — \"X\" blocks…"` once a source has been picked
+  - **Clickable dependency lines**: each red dotted edge is paired with a transparent `strokeWidth={14}` hit-line (`pointerEvents="stroke"`) that only captures events while `editMode` is on; clicking it opens a small **remove popup** at the line's midpoint with "Remove" / "Cancel" buttons
+  - **Success toast**: `Dependency added: "target" blocked by "source"` / `Dependency removed` — gold palette
+  - **Error toast**: circular-dependency rejections from the server (matched on `/circular/i`) surface as `Cannot create circular dependency.` in red; any other server error is shown verbatim
+  - **Optimistic local deps**: a new `localDeps` state (seeded from `allDependencies`, resynced via `useEffect`) lets adds/removes flip instantly; optimistic rows use `opt-<timestamp>` IDs until the server returns the real ID. Failed adds roll back; failed removes re-insert the original row. `lockedSet` now reads from `localDeps` so lock state stays coherent during optimistic edits
+  - **Clean toggle-off**: hitting "Done" (or programmatically flipping `editMode`) clears `pendingSource` and `depPopup`, removes the hit-lines, and reverts bubble outlines to their normal state
+  - **Background-click detection**: `didDrag` ref tracks whether a mouse-down turned into a pan (`> 3 px` movement); the SVG's new `onClick` resets edit selection only when the user actually clicked rather than released at the end of a drag
+- `src/components/jobs/JobStepsSection.tsx` — now forwards `canManageDeps` to `<FlowView>` so manager+ roles see the edit button (same `perms.canCreateSteps` gating as the list view)
+
+### Changed
+- `FlowView` toast kind widened from `'unblock' | 'revert'` to `'unblock' | 'revert' | 'edit' | 'error'`, rendered from a shared palette map
+- `handleBubbleTap` now dispatches to the edit-mode flow first; normal toggle behavior is unchanged outside edit mode
+
+### Notes
+- Circular-dependency validation stays on the server (from Part 1's `hasCircularDependency` BFS in `addStepDependency`) — the client just surfaces the error string
+
+---
+
 ## Step 26 Part 3a — Bug Fix: Cascade-Revert on Uncheck (April 2026)
 
 ### Fixed

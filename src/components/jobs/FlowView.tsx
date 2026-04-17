@@ -3,7 +3,7 @@
 import {
   useState, useRef, useEffect, useTransition, useMemo, useLayoutEffect,
 } from 'react'
-import { toggleStep } from '@/app/jobs/actions'
+import { toggleStep, addStepDependency, removeStepDependency } from '@/app/jobs/actions'
 import type { JobStep, StepDependency } from '@/lib/types'
 
 // ── Text wrap helper ──────────────────────────────────────────────────────────
@@ -118,12 +118,13 @@ interface Props {
   jobColor:         string
   readOnly?:        boolean
   allDependencies?: StepDependency[]
+  canManageDeps?:   boolean
 }
 
 // ── FlowView ──────────────────────────────────────────────────────────────────
 
 export function FlowView({
-  steps, jobTitle, jobColor, readOnly = false, allDependencies = [],
+  steps, jobTitle, jobColor, readOnly = false, allDependencies = [], canManageDeps = false,
 }: Props) {
   // Container dimensions (measured after mount for accurate centering)
   const containerRef  = useRef<HTMLDivElement>(null)
@@ -157,6 +158,7 @@ export function FlowView({
   // Drag tracking
   const dragging    = useRef(false)
   const lastMouse   = useRef({ x: 0, y: 0 })
+  const didDrag     = useRef(false)
 
   // Touch tracking
   const touchPos    = useRef<{ x: number; y: number } | null>(null)
@@ -191,6 +193,7 @@ export function FlowView({
 
   function onBgMouseDown(e: React.MouseEvent) {
     dragging.current  = true
+    didDrag.current   = false
     lastMouse.current = { x: e.clientX, y: e.clientY }
     e.currentTarget.setAttribute('data-dragging', '1')
   }
@@ -199,6 +202,7 @@ export function FlowView({
     if (!dragging.current) return
     const dx = e.clientX - lastMouse.current.x
     const dy = e.clientY - lastMouse.current.y
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDrag.current = true
     lastMouse.current = { x: e.clientX, y: e.clientY }
     setOffset(p => ({ x: p.x + dx, y: p.y + dy }))
   }
@@ -235,14 +239,84 @@ export function FlowView({
   const [lockedTip, setLockedTip] = useState<{ stepId: string; text: string } | null>(null)
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Toast shown after a toggle when steps were unblocked or cascade-reverted
-  const [toast, setToast] = useState<{ kind: 'unblock' | 'revert'; text: string } | null>(null)
+  // Toast shown after a toggle when steps were unblocked or cascade-reverted,
+  // or after edit-mode dependency add/remove operations
+  type ToastKind = 'unblock' | 'revert' | 'edit' | 'error'
+  const [toast, setToast] = useState<{ kind: ToastKind; text: string } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  function showToast(kind: 'unblock' | 'revert', text: string) {
+  function showToast(kind: ToastKind, text: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast({ kind, text })
     toastTimer.current = setTimeout(() => setToast(null), 4000)
+  }
+
+  // ── Edit-mode state ──────────────────────────────────────────────────────
+  const [editMode, setEditMode]           = useState(false)
+  const [pendingSource, setPendingSource] = useState<string | null>(null)
+  const [depPopup, setDepPopup]           = useState<{ depId: string; x: number; y: number } | null>(null)
+
+  // Local optimistic deps (mirrors server state; edits apply immediately)
+  const [localDeps, setLocalDeps] = useState<StepDependency[]>(allDependencies)
+  useEffect(() => { setLocalDeps(allDependencies) }, [allDependencies])
+
+  function toggleEditMode() {
+    setEditMode(m => {
+      const next = !m
+      if (!next) {
+        setPendingSource(null)
+        setDepPopup(null)
+      }
+      return next
+    })
+  }
+
+  function createDependency(sourceId: string, targetId: string) {
+    // target is blocked by source
+    const optId = `opt-${Date.now()}`
+    const optimistic: StepDependency = {
+      id:                 optId,
+      step_id:            targetId,
+      blocked_by_step_id: sourceId,
+      created_at:         new Date().toISOString(),
+    }
+    setLocalDeps(p => [...p, optimistic])
+    setPendingSource(null)
+
+    const srcName = steps.find(s => s.id === sourceId)?.text ?? 'source'
+    const tgtName = steps.find(s => s.id === targetId)?.text ?? 'target'
+
+    startTransition(async () => {
+      const r = await addStepDependency(targetId, sourceId)
+      if (r.error) {
+        setLocalDeps(p => p.filter(d => d.id !== optId))
+        if (/circular/i.test(r.error)) {
+          showToast('error', 'Cannot create circular dependency.')
+        } else {
+          showToast('error', r.error)
+        }
+      } else if (r.data) {
+        setLocalDeps(p => p.map(d => d.id === optId ? r.data! : d))
+        showToast('edit', `Dependency added: "${tgtName}" blocked by "${srcName}"`)
+      }
+    })
+  }
+
+  function removeDependency(depId: string) {
+    const existing = localDeps.find(d => d.id === depId)
+    if (!existing) return
+    setLocalDeps(p => p.filter(d => d.id !== depId))
+    setDepPopup(null)
+
+    startTransition(async () => {
+      const r = await removeStepDependency(depId)
+      if (r.error) {
+        setLocalDeps(p => [...p, existing])
+        showToast('error', r.error)
+      } else {
+        showToast('edit', 'Dependency removed')
+      }
+    })
   }
 
   // ── Layout ────────────────────────────────────────────────────────────────
@@ -268,7 +342,7 @@ export function FlowView({
     for (const s of steps) {
       const done = doneMap[s.id] ?? s.done
       if (done) continue
-      const blockers = allDependencies.filter(d => d.step_id === s.id)
+      const blockers = localDeps.filter(d => d.step_id === s.id)
       for (const d of blockers) {
         const bDone = doneMap[d.blocked_by_step_id]
           ?? steps.find(ss => ss.id === d.blocked_by_step_id)?.done
@@ -277,12 +351,28 @@ export function FlowView({
       }
     }
     return set
-  }, [steps, allDependencies, doneMap])
+  }, [steps, localDeps, doneMap])
 
   function handleBubbleTap(stepId: string) {
+    // Edit mode takes priority over toggle: two-step source → target selection
+    if (editMode) {
+      setDepPopup(null)
+      if (!pendingSource) {
+        setPendingSource(stepId)
+        return
+      }
+      if (pendingSource === stepId) {
+        // Clicking the same bubble twice resets selection
+        setPendingSource(null)
+        return
+      }
+      createDependency(pendingSource, stepId)
+      return
+    }
+
     if (readOnly) return
     if (lockedSet.has(stepId)) {
-      const names = allDependencies
+      const names = localDeps
         .filter(d => d.step_id === stepId)
         .map(d => steps.find(s => s.id === d.blocked_by_step_id))
         .filter((s): s is JobStep => !!s && !(doneMap[s.id] ?? s.done))
@@ -361,6 +451,13 @@ export function FlowView({
         height="100%"
         style={{ display: 'block', overflow: 'visible' }}
         onMouseDown={onBgMouseDown}
+        onClick={() => {
+          if (didDrag.current) return
+          if (editMode && (pendingSource || depPopup)) {
+            setPendingSource(null)
+            setDepPopup(null)
+          }
+        }}
       >
         <defs>
           <filter id="fv-glow-gold" x="-60%" y="-60%" width="220%" height="220%">
@@ -415,7 +512,7 @@ export function FlowView({
           ))}
 
           {/* ── Dependency edges (blocker → blocked, red dotted + arrow) ── */}
-          {allDependencies.map(dep => {
+          {localDeps.map(dep => {
             const src = nodeById.get(dep.blocked_by_step_id)
             const tgt = nodeById.get(dep.step_id)
             if (!src || !tgt) return null
@@ -429,29 +526,50 @@ export function FlowView({
             const y1 = src.y + uy * src.r
             const x2 = tgt.x - ux * (tgt.r + 4)
             const y2 = tgt.y - uy * (tgt.r + 4)
+            const midX = (x1 + x2) / 2
+            const midY = (y1 + y2) / 2
             return (
-              <line
-                key={`dep-${dep.id}`}
-                x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke="#F87171"
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-                strokeLinecap="round"
-                opacity={0.75}
-                markerEnd="url(#fv-dep-arrow)"
-                style={{ pointerEvents: 'none' }}
-              />
+              <g key={`dep-${dep.id}`}>
+                <line
+                  x1={x1} y1={y1} x2={x2} y2={y2}
+                  stroke="#F87171"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  strokeLinecap="round"
+                  opacity={0.75}
+                  markerEnd="url(#fv-dep-arrow)"
+                  style={{ pointerEvents: 'none' }}
+                />
+                {/* Wider invisible hit line — only captures clicks in edit mode */}
+                {editMode && (
+                  <line
+                    x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke="transparent"
+                    strokeWidth={14}
+                    strokeLinecap="round"
+                    style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => {
+                      e.stopPropagation()
+                      setPendingSource(null)
+                      setDepPopup({ depId: dep.id, x: midX, y: midY })
+                    }}
+                  />
+                )}
+              </g>
             )
           })}
 
           {/* ── Step nodes ── */}
           {renderedNodes.map(n => {
-            const s       = nodeStyle(n.step)
-            const lns     = wrapText(n.step.text, n.level === 1 ? 12 : 9, 2)
-            const lineH   = n.level === 1 ? 11 : 10
-            const fSize   = n.level === 1 ? 9.5 : 8.5
-            const locked  = lockedSet.has(n.step.id)
-            const groupOp = locked ? 0.5 : 1
+            const s            = nodeStyle(n.step)
+            const lns          = wrapText(n.step.text, n.level === 1 ? 12 : 9, 2)
+            const lineH        = n.level === 1 ? 11 : 10
+            const fSize        = n.level === 1 ? 9.5 : 8.5
+            const locked       = lockedSet.has(n.step.id)
+            const isEditSource = editMode && pendingSource === n.step.id
+            const groupOp      = locked ? 0.5 : 1
+            const clickable    = editMode ? true : !readOnly
 
             return (
               <g
@@ -459,10 +577,30 @@ export function FlowView({
                 transform={`translate(${n.x},${n.y})`}
                 onClick={e => { e.stopPropagation(); handleBubbleTap(n.step.id) }}
                 onMouseDown={e => e.stopPropagation()}  // prevent pan start on node click
-                style={{ cursor: readOnly ? 'default' : 'pointer', opacity: groupOp, transition: 'opacity 300ms ease' }}
+                style={{ cursor: clickable ? 'pointer' : 'default', opacity: groupOp, transition: 'opacity 300ms ease' }}
               >
+                {/* Edit-mode interactive indicator — dashed gold ring around each bubble */}
+                {editMode && (
+                  <circle
+                    r={n.r + 5} fill="none"
+                    stroke="#C8A44E" strokeWidth={1}
+                    strokeDasharray="2 3"
+                    opacity={isEditSource ? 0 : 0.45}
+                  />
+                )}
+                {/* Selected-source highlight — gold glow pulse */}
+                {isEditSource && (
+                  <circle
+                    r={n.r + 8} fill="none"
+                    stroke="#C8A44E" strokeWidth={2.5}
+                    opacity={0.8}
+                    filter="url(#fv-glow-gold)"
+                    className="animate-pulse"
+                  />
+                )}
+
                 {/* Pulse glow ring for high-impact steps (suppressed while locked) */}
-                {s.glow && !locked && (
+                {s.glow && !locked && !isEditSource && (
                   <circle
                     r={n.r + 10} fill="none"
                     stroke={s.glowColor} strokeWidth={1} opacity={0.2}
@@ -574,7 +712,30 @@ export function FlowView({
       <div
         className="absolute bottom-3 right-3 flex gap-1.5"
         onMouseDown={e => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
+        {canManageDeps && !readOnly && (
+          <button
+            onClick={toggleEditMode}
+            title={editMode ? 'Exit edit mode' : 'Edit dependencies'}
+            className="h-7 px-2.5 rounded-lg flex items-center gap-1 transition-colors"
+            style={{
+              backgroundColor: editMode ? 'rgba(200,164,78,0.18)' : 'rgba(255,255,255,0.07)',
+              border:          editMode ? '1px solid rgba(200,164,78,0.5)' : '1px solid rgba(255,255,255,0.1)',
+              color:           editMode ? '#C8A44E' : '#8B8F9E',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="8"  cy="3.5" r="1.5" />
+              <circle cx="3"  cy="12"  r="1.5" />
+              <circle cx="13" cy="12"  r="1.5" />
+              <path d="M8 5V9.5M8 9.5L3 10.5M8 9.5L13 10.5" />
+            </svg>
+            <span className="text-[10px] font-semibold">
+              {editMode ? 'Done' : 'Edit'}
+            </span>
+          </button>
+        )}
         <button
           onClick={() => { setOffset({ x: 0, y: 0 }); setScale(1) }}
           title="Reset view"
@@ -634,32 +795,100 @@ export function FlowView({
         )}
       </div>
 
-      {/* ── Toast (unblock / cascade-revert) ── */}
-      {toast && (
+      {/* ── Toast (unblock / cascade-revert / edit-success / error) ── */}
+      {toast && (() => {
+        const palette: Record<ToastKind, { bg: string; border: string; color: string }> = {
+          unblock: { bg: 'rgba(74,222,128,0.12)',  border: 'rgba(74,222,128,0.3)',  color: '#4ADE80' },
+          revert:  { bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.35)',  color: '#EAB308' },
+          edit:    { bg: 'rgba(200,164,78,0.14)',  border: 'rgba(200,164,78,0.4)',  color: '#C8A44E' },
+          error:   { bg: 'rgba(248,113,113,0.14)', border: 'rgba(248,113,113,0.4)', color: '#F87171' },
+        }
+        const p = palette[toast.kind]
+        return (
+          <div
+            className="absolute top-3 left-1/2 text-[11px] font-medium px-3 py-1.5 rounded-lg pointer-events-none"
+            style={{
+              transform: 'translateX(-50%)',
+              whiteSpace: 'nowrap',
+              maxWidth: 'calc(100% - 24px)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              backgroundColor: p.bg,
+              border: `1px solid ${p.border}`,
+              color: p.color,
+            }}
+          >
+            {toast.text}
+          </div>
+        )
+      })()}
+
+      {/* ── Edit-mode status banner ── */}
+      {editMode && !toast && (
         <div
-          className="absolute top-3 left-1/2 text-[11px] font-medium px-3 py-1.5 rounded-lg pointer-events-none"
+          className="absolute top-3 left-1/2 text-[10px] font-semibold px-3 py-1.5 rounded-lg pointer-events-none uppercase tracking-wider"
           style={{
             transform: 'translateX(-50%)',
             whiteSpace: 'nowrap',
-            maxWidth: 'calc(100% - 24px)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            ...(toast.kind === 'unblock'
-              ? {
-                  backgroundColor: 'rgba(74,222,128,0.12)',
-                  border: '1px solid rgba(74,222,128,0.3)',
-                  color: '#4ADE80',
-                }
-              : {
-                  backgroundColor: 'rgba(234,179,8,0.12)',
-                  border: '1px solid rgba(234,179,8,0.35)',
-                  color: '#EAB308',
-                }),
+            backgroundColor: 'rgba(200,164,78,0.12)',
+            border: '1px solid rgba(200,164,78,0.35)',
+            color: '#C8A44E',
           }}
         >
-          {toast.text}
+          {pendingSource
+            ? `Edit: click a target bubble — "${steps.find(s => s.id === pendingSource)?.text ?? ''}" blocks…`
+            : 'Edit: click a blocker bubble to start, or click a line to remove'}
         </div>
       )}
+
+      {/* ── Remove-dependency popup (edit mode) ── */}
+      {editMode && depPopup && (() => {
+        const left = tx + depPopup.x * scale
+        const top  = ty + depPopup.y * scale
+        const dep  = localDeps.find(d => d.id === depPopup.depId)
+        const src  = dep ? steps.find(s => s.id === dep.blocked_by_step_id) : null
+        const tgt  = dep ? steps.find(s => s.id === dep.step_id) : null
+        return (
+          <div
+            className="absolute rounded-lg px-2.5 py-2 flex flex-col gap-1.5"
+            style={{
+              left, top, transform: 'translate(-50%, -50%)',
+              backgroundColor: 'rgba(20,22,28,0.96)',
+              border: '1px solid rgba(200,164,78,0.35)',
+              boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
+              minWidth: 160,
+            }}
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-[10px] leading-snug" style={{ color: '#8B8F9E' }}>
+              <span style={{ color: '#E8E9ED' }}>&quot;{tgt?.text ?? '?'}&quot;</span>
+              {' blocked by '}
+              <span style={{ color: '#E8E9ED' }}>&quot;{src?.text ?? '?'}&quot;</span>
+            </p>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => removeDependency(depPopup.depId)}
+                className="text-[11px] font-semibold px-2 py-1 rounded-md"
+                style={{
+                  backgroundColor: 'rgba(248,113,113,0.15)',
+                  color: '#F87171',
+                  border: '1px solid rgba(248,113,113,0.3)',
+                }}
+              >
+                Remove
+              </button>
+              <button
+                onClick={() => setDepPopup(null)}
+                className="text-[11px] px-2 py-1 rounded-md"
+                style={{ color: '#8B8F9E' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Locked-bubble tooltip ── */}
       {lockedTip && (() => {

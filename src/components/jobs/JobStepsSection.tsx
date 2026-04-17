@@ -177,6 +177,7 @@ export function JobStepsSection({
             jobColor={jobColor}
             readOnly={readOnly}
             allDependencies={allDependencies}
+            canManageDeps={canManageDeps}
           />
           {showAddForm && (
             <div className="mt-4">
