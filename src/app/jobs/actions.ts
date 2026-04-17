@@ -74,18 +74,80 @@ export async function createJob(formData: FormData) {
 export async function toggleStep(stepId: string, done: boolean) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not authenticated', unlockedStepNames: [] as string[] }
+  if (!user) return {
+    error: 'Not authenticated',
+    unlockedStepNames: [] as string[],
+    revertedStepNames: [] as string[],
+  }
 
-  const { error } = await supabase
-    .from('job_steps')
-    .update({
-      done,
-      completed_by: done ? user.id : null,
-      completed_at: done ? new Date().toISOString() : null,
-    })
-    .eq('id', stepId)
+  const revertedStepNames: string[] = []
 
-  if (error) return { error: error.message, unlockedStepNames: [] as string[] }
+  if (done) {
+    // ── Mark complete: single-row update ────────────────────────────────────
+    const { error } = await supabase
+      .from('job_steps')
+      .update({
+        done: true,
+        completed_by: user.id,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', stepId)
+
+    if (error) return {
+      error: error.message,
+      unlockedStepNames: [] as string[],
+      revertedStepNames: [] as string[],
+    }
+  } else {
+    // ── Mark incomplete: cascade-revert any transitively dependent done steps ─
+    // BFS through step_dependencies from stepId following blocked_by → step
+    const visited = new Set<string>([stepId])
+    let frontier: string[] = [stepId]
+    while (frontier.length > 0) {
+      const { data: deps } = await supabase
+        .from('step_dependencies')
+        .select('step_id')
+        .in('blocked_by_step_id', frontier)
+
+      const nextFrontier: string[] = []
+      for (const d of deps ?? []) {
+        if (!visited.has(d.step_id)) {
+          visited.add(d.step_id)
+          nextFrontier.push(d.step_id)
+        }
+      }
+      frontier = nextFrontier
+    }
+
+    // Exclude the original step; find which dependents are currently done
+    const dependentIds = Array.from(visited).filter(id => id !== stepId)
+    let doneDependentIds: string[] = []
+    if (dependentIds.length > 0) {
+      const { data: doneDeps } = await supabase
+        .from('job_steps')
+        .select('id, text')
+        .in('id', dependentIds)
+        .eq('done', true)
+
+      doneDependentIds = (doneDeps ?? []).map(d => d.id)
+      for (const d of doneDeps ?? []) revertedStepNames.push(d.text)
+    }
+
+    // Atomic: single UPDATE statement over the original step + all done dependents.
+    // PostgreSQL wraps each statement in an implicit transaction, so either every
+    // row updates or none do.
+    const idsToUpdate = [stepId, ...doneDependentIds]
+    const { error } = await supabase
+      .from('job_steps')
+      .update({ done: false, completed_by: null, completed_at: null })
+      .in('id', idsToUpdate)
+
+    if (error) return {
+      error: error.message,
+      unlockedStepNames: [] as string[],
+      revertedStepNames: [] as string[],
+    }
+  }
 
   const { data: step } = await supabase
     .from('job_steps')
@@ -128,7 +190,7 @@ export async function toggleStep(stepId: string, done: boolean) {
     }
   }
 
-  return { error: null, unlockedStepNames }
+  return { error: null, unlockedStepNames, revertedStepNames }
 }
 
 // ── Add Step ──────────────────────────────────────────────────────────────────

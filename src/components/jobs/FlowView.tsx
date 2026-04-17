@@ -235,6 +235,16 @@ export function FlowView({
   const [lockedTip, setLockedTip] = useState<{ stepId: string; text: string } | null>(null)
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Toast shown after a toggle when steps were unblocked or cascade-reverted
+  const [toast, setToast] = useState<{ kind: 'unblock' | 'revert'; text: string } | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function showToast(kind: 'unblock' | 'revert', text: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ kind, text })
+    toastTimer.current = setTimeout(() => setToast(null), 4000)
+  }
+
   // ── Layout ────────────────────────────────────────────────────────────────
 
   const nodes = useMemo(() => layoutNodes(steps), [steps])
@@ -289,7 +299,34 @@ export function FlowView({
     setDoneMap(p => ({ ...p, [stepId]: next }))
     startTransition(async () => {
       const res = await toggleStep(stepId, next)
-      if (res?.error) setDoneMap(p => ({ ...p, [stepId]: !next }))
+      if (res?.error) {
+        setDoneMap(p => ({ ...p, [stepId]: !next }))
+        return
+      }
+      if (next && res.unlockedStepNames.length > 0) {
+        const names = res.unlockedStepNames
+        showToast(
+          'unblock',
+          names.length === 1
+            ? `Unblocked "${names[0]}"`
+            : `Unblocked ${names.length} steps`,
+        )
+      } else if (!next && res.revertedStepNames.length > 0) {
+        const names = res.revertedStepNames
+        // Optimistically clear done state for the reverted steps so the flow
+        // updates immediately before the server revalidation lands
+        setDoneMap(p => {
+          const updated = { ...p }
+          for (const s of steps) if (names.includes(s.text)) updated[s.id] = false
+          return updated
+        })
+        showToast(
+          'revert',
+          names.length === 1
+            ? `Reverted "${names[0]}" — blocker was unchecked`
+            : `Reverted ${names.length} dependent steps — blocker was unchecked`,
+        )
+      }
     })
   }
 
@@ -596,6 +633,33 @@ export function FlowView({
           </div>
         )}
       </div>
+
+      {/* ── Toast (unblock / cascade-revert) ── */}
+      {toast && (
+        <div
+          className="absolute top-3 left-1/2 text-[11px] font-medium px-3 py-1.5 rounded-lg pointer-events-none"
+          style={{
+            transform: 'translateX(-50%)',
+            whiteSpace: 'nowrap',
+            maxWidth: 'calc(100% - 24px)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            ...(toast.kind === 'unblock'
+              ? {
+                  backgroundColor: 'rgba(74,222,128,0.12)',
+                  border: '1px solid rgba(74,222,128,0.3)',
+                  color: '#4ADE80',
+                }
+              : {
+                  backgroundColor: 'rgba(234,179,8,0.12)',
+                  border: '1px solid rgba(234,179,8,0.35)',
+                  color: '#EAB308',
+                }),
+          }}
+        >
+          {toast.text}
+        </div>
+      )}
 
       {/* ── Locked-bubble tooltip ── */}
       {lockedTip && (() => {
