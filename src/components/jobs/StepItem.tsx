@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { toggleStep, addStepDependency, removeStepDependency } from '@/app/jobs/actions'
 import type { JobStep, StepDependency } from '@/lib/types'
 
@@ -180,9 +180,13 @@ export function StepItem({
   const [done, setDone]              = useState(step.done)
   const [isPending, startTransition] = useTransition()
   const [showPanel, setShowPanel]    = useState(false)
-  const [toast, setToast]            = useState<string | null>(null)
+  const [toast, setToast]            = useState<{ kind: 'unblock' | 'revert'; text: string } | null>(null)
   const [lockedMsg, setLockedMsg]    = useState(false)
   const toastTimer                   = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Keep local done in sync with server-revalidated prop (handles cascade-revert
+  // when this step's blocker gets unchecked elsewhere)
+  useEffect(() => { setDone(step.done) }, [step.done])
 
   // Compute locked state from props (updates on each render / server revalidation)
   const blockerDeps        = allDependencies.filter(d => d.step_id === step.id)
@@ -190,10 +194,10 @@ export function StepItem({
   const incompleteBlockers = allBlockerSteps.filter(s => !s.done)
   const isLocked           = !done && incompleteBlockers.length > 0
 
-  function showToast(msg: string) {
+  function showToast(kind: 'unblock' | 'revert', text: string) {
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast(msg)
-    toastTimer.current = setTimeout(() => setToast(null), 3500)
+    setToast({ kind, text })
+    toastTimer.current = setTimeout(() => setToast(null), 4000)
   }
 
   function handleToggle() {
@@ -212,9 +216,18 @@ export function StepItem({
       } else if (next && result.unlockedStepNames.length > 0) {
         const names = result.unlockedStepNames
         showToast(
+          'unblock',
           names.length === 1
             ? `Unblocked "${names[0]}"`
-            : `Unblocked ${names.length} steps`
+            : `Unblocked ${names.length} steps`,
+        )
+      } else if (!next && result.revertedStepNames.length > 0) {
+        const names = result.revertedStepNames
+        showToast(
+          'revert',
+          names.length === 1
+            ? `Reverted "${names[0]}" — blocker was unchecked`
+            : `Reverted ${names.length} dependent steps — blocker was unchecked`,
         )
       }
     })
@@ -273,17 +286,25 @@ export function StepItem({
 
   return (
     <div>
-      {/* Unblock toast */}
+      {/* Unblock / revert toast */}
       {toast && (
         <div
           className="text-[11px] font-medium px-3 py-1.5 rounded-lg mb-1"
-          style={{
-            backgroundColor: 'rgba(74,222,128,0.1)',
-            border: '1px solid rgba(74,222,128,0.2)',
-            color: '#4ADE80',
-          }}
+          style={
+            toast.kind === 'unblock'
+              ? {
+                  backgroundColor: 'rgba(74,222,128,0.1)',
+                  border: '1px solid rgba(74,222,128,0.2)',
+                  color: '#4ADE80',
+                }
+              : {
+                  backgroundColor: 'rgba(234,179,8,0.1)',
+                  border: '1px solid rgba(234,179,8,0.25)',
+                  color: '#EAB308',
+                }
+          }
         >
-          {toast}
+          {toast.text}
         </div>
       )}
 

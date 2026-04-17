@@ -9,6 +9,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 26 Part 3a — Bug Fix: Cascade-Revert on Uncheck (April 2026)
+
+### Fixed
+- `src/app/jobs/actions.ts` — `toggleStep` now preserves the invariant "no done step has an incomplete blocker" when a step is **un-checked**:
+  - BFS walks `step_dependencies` from the toggled step through all transitively dependent steps (blocker → blocked edges)
+  - Of those dependents, the ones currently marked `done` are collected (both their IDs and their text, for the toast message)
+  - A single `UPDATE job_steps ... IN (originalStep, ...doneDependentIds)` reverts every affected row in one statement; PostgreSQL executes each statement atomically, so either every revert lands or none do
+  - New return field `revertedStepNames: string[]` exposes the list to the client
+  - Marking a step **done** still takes the simple single-row path (no cascade needed); the existing `unlockedStepNames` logic is unchanged
+
+### Changed
+- `src/components/jobs/StepItem.tsx`:
+  - Toast state reshaped to `{ kind: 'unblock' | 'revert'; text: string }`; green styling for unblock, yellow styling for revert
+  - After a successful uncheck, if `revertedStepNames.length > 0` shows "Reverted \"[name]\" — blocker was unchecked" (or "Reverted N dependent steps — blocker was unchecked" for multiples) for 4 s
+  - Added `useEffect(() => setDone(step.done), [step.done])` so dependent `StepItem` rows visually flip from checked → unchecked as soon as the server revalidates (previously local `done` state was stuck at its mount value)
+- `src/components/jobs/FlowView.tsx`:
+  - New toast overlay anchored to the top of the flow canvas, mirrors the list-view styling (green for unblock, yellow for revert)
+  - On cascade-revert, the flow also optimistically clears `doneMap` for every reverted step (matched by text) so the bubbles brighten immediately instead of waiting for revalidation
+
+### Notes
+- Atomicity guarantee: the cascade runs as one SQL statement via PostgREST's `.update().in()`, so partial reverts are impossible. The pre-flight `SELECT` that gathers names is read-only and therefore not part of the atomicity boundary.
+
+---
+
 ## Step 26 Part 3a — Flow View Dependency Visualization (April 2026)
 
 ### Added
