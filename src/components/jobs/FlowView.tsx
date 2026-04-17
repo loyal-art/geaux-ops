@@ -4,7 +4,7 @@ import {
   useState, useRef, useEffect, useTransition, useMemo, useLayoutEffect,
 } from 'react'
 import { toggleStep } from '@/app/jobs/actions'
-import type { JobStep } from '@/lib/types'
+import type { JobStep, StepDependency } from '@/lib/types'
 
 // ── Text wrap helper ──────────────────────────────────────────────────────────
 
@@ -113,15 +113,18 @@ function layoutNodes(steps: JobStep[]): PositionedNode[] {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  steps:     JobStep[]
-  jobTitle:  string
-  jobColor:  string
-  readOnly?: boolean
+  steps:            JobStep[]
+  jobTitle:         string
+  jobColor:         string
+  readOnly?:        boolean
+  allDependencies?: StepDependency[]
 }
 
 // ── FlowView ──────────────────────────────────────────────────────────────────
 
-export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props) {
+export function FlowView({
+  steps, jobTitle, jobColor, readOnly = false, allDependencies = [],
+}: Props) {
   // Container dimensions (measured after mount for accurate centering)
   const containerRef  = useRef<HTMLDivElement>(null)
   const [cw, setCw]   = useState(450)
@@ -228,15 +231,9 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
     touchDist.current = null
   }
 
-  function handleToggle(stepId: string) {
-    if (readOnly) return
-    const next = !(doneMap[stepId] ?? false)
-    setDoneMap(p => ({ ...p, [stepId]: next }))
-    startTransition(async () => {
-      const res = await toggleStep(stepId, next)
-      if (res?.error) setDoneMap(p => ({ ...p, [stepId]: !next }))
-    })
-  }
+  // Transient tooltip shown when a locked bubble is tapped
+  const [lockedTip, setLockedTip] = useState<{ stepId: string; text: string } | null>(null)
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Layout ────────────────────────────────────────────────────────────────
 
@@ -247,6 +244,54 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
     () => nodes.map(n => ({ ...n, step: { ...n.step, done: doneMap[n.step.id] ?? n.step.done } })),
     [nodes, doneMap]
   )
+
+  // Index positions by step id for drawing dependency edges
+  const nodeById = useMemo(() => {
+    const m = new Map<string, typeof renderedNodes[number]>()
+    for (const n of renderedNodes) m.set(n.step.id, n)
+    return m
+  }, [renderedNodes])
+
+  // Compute which steps are locked (have an incomplete blocker)
+  const lockedSet = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of steps) {
+      const done = doneMap[s.id] ?? s.done
+      if (done) continue
+      const blockers = allDependencies.filter(d => d.step_id === s.id)
+      for (const d of blockers) {
+        const bDone = doneMap[d.blocked_by_step_id]
+          ?? steps.find(ss => ss.id === d.blocked_by_step_id)?.done
+          ?? false
+        if (!bDone) { set.add(s.id); break }
+      }
+    }
+    return set
+  }, [steps, allDependencies, doneMap])
+
+  function handleBubbleTap(stepId: string) {
+    if (readOnly) return
+    if (lockedSet.has(stepId)) {
+      const names = allDependencies
+        .filter(d => d.step_id === stepId)
+        .map(d => steps.find(s => s.id === d.blocked_by_step_id))
+        .filter((s): s is JobStep => !!s && !(doneMap[s.id] ?? s.done))
+        .map(s => `"${s.text}"`)
+      const text = names.length > 0
+        ? `Complete ${names.join(', ')} first`
+        : 'Blocked'
+      if (tipTimer.current) clearTimeout(tipTimer.current)
+      setLockedTip({ stepId, text })
+      tipTimer.current = setTimeout(() => setLockedTip(null), 2500)
+      return
+    }
+    const next = !(doneMap[stepId] ?? false)
+    setDoneMap(p => ({ ...p, [stepId]: next }))
+    startTransition(async () => {
+      const res = await toggleStep(stepId, next)
+      if (res?.error) setDoneMap(p => ({ ...p, [stepId]: !next }))
+    })
+  }
 
   const centerLines = wrapText(jobTitle, 14, 3)
   const COLOR       = jobColor || '#C8A44E'
@@ -293,6 +338,17 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
             <feGaussianBlur stdDeviation="6" result="b" />
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
+          {/* Arrowhead for dependency edges (blocker → blocked) */}
+          <marker
+            id="fv-dep-arrow"
+            viewBox="0 0 10 10"
+            refX="9" refY="5"
+            markerWidth="6" markerHeight="6"
+            markerUnits="userSpaceOnUse"
+            orient="auto-start-reverse"
+          >
+            <path d="M0,0 L10,5 L0,10 z" fill="#F87171" />
+          </marker>
         </defs>
 
         {/* ── All content in a transformed group for pan + zoom ── */}
@@ -321,23 +377,55 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
             />
           ))}
 
+          {/* ── Dependency edges (blocker → blocked, red dotted + arrow) ── */}
+          {allDependencies.map(dep => {
+            const src = nodeById.get(dep.blocked_by_step_id)
+            const tgt = nodeById.get(dep.step_id)
+            if (!src || !tgt) return null
+            // Shorten the line so the arrowhead terminates on the target bubble's edge
+            const dx = tgt.x - src.x
+            const dy = tgt.y - src.y
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1
+            const ux = dx / dist
+            const uy = dy / dist
+            const x1 = src.x + ux * src.r
+            const y1 = src.y + uy * src.r
+            const x2 = tgt.x - ux * (tgt.r + 4)
+            const y2 = tgt.y - uy * (tgt.r + 4)
+            return (
+              <line
+                key={`dep-${dep.id}`}
+                x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke="#F87171"
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                strokeLinecap="round"
+                opacity={0.75}
+                markerEnd="url(#fv-dep-arrow)"
+                style={{ pointerEvents: 'none' }}
+              />
+            )
+          })}
+
           {/* ── Step nodes ── */}
           {renderedNodes.map(n => {
-            const s      = nodeStyle(n.step)
-            const lns    = wrapText(n.step.text, n.level === 1 ? 12 : 9, 2)
-            const lineH  = n.level === 1 ? 11 : 10
-            const fSize  = n.level === 1 ? 9.5 : 8.5
+            const s       = nodeStyle(n.step)
+            const lns     = wrapText(n.step.text, n.level === 1 ? 12 : 9, 2)
+            const lineH   = n.level === 1 ? 11 : 10
+            const fSize   = n.level === 1 ? 9.5 : 8.5
+            const locked  = lockedSet.has(n.step.id)
+            const groupOp = locked ? 0.5 : 1
 
             return (
               <g
                 key={n.step.id}
                 transform={`translate(${n.x},${n.y})`}
-                onClick={e => { e.stopPropagation(); handleToggle(n.step.id) }}
+                onClick={e => { e.stopPropagation(); handleBubbleTap(n.step.id) }}
                 onMouseDown={e => e.stopPropagation()}  // prevent pan start on node click
-                style={{ cursor: readOnly ? 'default' : 'pointer' }}
+                style={{ cursor: readOnly ? 'default' : 'pointer', opacity: groupOp, transition: 'opacity 300ms ease' }}
               >
-                {/* Pulse glow ring for high-impact steps */}
-                {s.glow && (
+                {/* Pulse glow ring for high-impact steps (suppressed while locked) */}
+                {s.glow && !locked && (
                   <circle
                     r={n.r + 10} fill="none"
                     stroke={s.glowColor} strokeWidth={1} opacity={0.2}
@@ -349,12 +437,13 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
                 <circle
                   r={n.r}
                   fill={s.fill}
-                  stroke={s.stroke}
+                  stroke={locked ? '#EAB308' : s.stroke}
                   strokeWidth={s.strokeW}
+                  strokeDasharray={locked ? '3 2' : undefined}
                   filter={
                     n.step.done
                       ? 'url(#fv-glow-green)'
-                      : s.glow
+                      : (s.glow && !locked)
                         ? 'url(#fv-glow-gold)'
                         : undefined
                   }
@@ -373,7 +462,7 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
                 {!n.step.done && (
                   <text
                     textAnchor="middle"
-                    fill={s.textColor}
+                    fill={locked ? '#EAB308' : s.textColor}
                     fontSize={fSize}
                     fontWeight="500"
                     style={{ fontFamily: 'inherit', pointerEvents: 'none', userSelect: 'none' }}
@@ -388,6 +477,18 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
                       </tspan>
                     ))}
                   </text>
+                )}
+
+                {/* Lock icon overlay */}
+                {locked && !n.step.done && (
+                  <g transform={`translate(${n.r - 6}, ${-n.r + 2})`} style={{ pointerEvents: 'none' }}>
+                    <circle r={7} fill="#0F1117" stroke="#EAB308" strokeWidth={1.2} />
+                    <path
+                      d="M-2.5,-0.5 h5 v3.2 h-5 z M-1.7,-0.5 v-1.6 a1.7,1.7 0 0 1 3.4,0 v1.6"
+                      fill="none" stroke="#EAB308" strokeWidth={1.1}
+                      strokeLinecap="round" strokeLinejoin="round"
+                    />
+                  </g>
                 )}
               </g>
             )
@@ -488,7 +589,38 @@ export function FlowView({ steps, jobTitle, jobColor, readOnly = false }: Props)
           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
           <span className="text-[9px] font-medium" style={{ color: '#8B8F9E' }}>Pending</span>
         </div>
+        {allDependencies.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'rgba(234,179,8,0.18)', border: '1px dashed #EAB308' }} />
+            <span className="text-[9px] font-medium" style={{ color: '#8B8F9E' }}>Blocked</span>
+          </div>
+        )}
       </div>
+
+      {/* ── Locked-bubble tooltip ── */}
+      {lockedTip && (() => {
+        const n = nodeById.get(lockedTip.stepId)
+        if (!n) return null
+        const left = tx + n.x * scale
+        const top  = ty + n.y * scale - n.r * scale - 14
+        return (
+          <div
+            className="absolute pointer-events-none text-[10px] font-medium px-2 py-1 rounded-md"
+            style={{
+              left, top, transform: 'translate(-50%, -100%)',
+              backgroundColor: 'rgba(234,179,8,0.15)',
+              border:          '1px solid rgba(234,179,8,0.4)',
+              color:           '#EAB308',
+              whiteSpace:      'nowrap',
+              maxWidth:        '220px',
+              overflow:        'hidden',
+              textOverflow:    'ellipsis',
+            }}
+          >
+            🔒 {lockedTip.text}
+          </div>
+        )
+      })()}
 
       {/* ── Empty state ── */}
       {steps.length === 0 && (
