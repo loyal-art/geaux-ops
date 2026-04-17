@@ -9,6 +9,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Step 26 Part 3a — Flow View Dependency Visualization (April 2026)
+
+### Added
+- `src/components/jobs/FlowView.tsx` — visualizes step dependencies directly on the radial bubble flowchart:
+  - **New `allDependencies?: StepDependency[]` prop**; defaults to `[]` when no data is passed
+  - **Dependency edges**: for every dependency, a red dotted line (`#F87171`, `strokeDasharray="4 3"`) is drawn from the blocker bubble's edge to the blocked bubble's edge; each line terminates in an arrowhead (new `<marker id="fv-dep-arrow">` in `<defs>`) that makes direction explicit (blocker → blocked); endpoints are offset by each bubble's radius so the arrowhead sits cleanly on the target's edge and never overlaps the bubble
+  - **Lock logic**: a memoized `lockedSet` recomputes on every state change, flagging any step whose `allDependencies` include a blocker that is not yet `done` (checks the optimistic `doneMap` first so completions feel instant)
+  - **Locked bubble visuals**: dimmed to 50 % opacity (with a 300 ms opacity transition so unlocking feels like a gentle brighten), yellow dashed stroke (`#EAB308`, `strokeDasharray="3 2"`), yellow text color, focus-pulse ring suppressed, plus a small **lock-icon overlay** (yellow padlock on dark background) at the top-right of the bubble
+  - **Tap behavior**: `handleBubbleTap()` intercepts clicks — if the step is in `lockedSet`, the completion toggle is blocked and a transient tooltip appears above the bubble for 2.5 s reading "🔒 Complete \"[blocker names]\" first"; unlocked steps toggle normally through the existing optimistic `toggleStep` flow
+  - **Tooltip overlay**: absolutely-positioned div rendered outside the SVG; position computed from the node's coordinates, the current pan offset (`tx`/`ty`), and the current `scale` so it stays anchored to the bubble while panning/zooming; auto-dismisses on a `setTimeout` ref that clears on re-tap
+  - **Legend**: new "Blocked" entry (dashed yellow circle) appears automatically whenever `allDependencies.length > 0`
+- `src/components/jobs/JobStepsSection.tsx` — forwards `allDependencies` to `<FlowView>` so the flow view receives the same dependency data as the list view
+
+### Changed
+- Parent-child gold edges and radial pan/zoom layout left untouched — dependency edges render as an additional layer between parent-child lines and node bubbles
+
+### Notes
+- This is **Part 3a** (visualization only). Interactive edit mode — creating/removing dependencies from the flow view itself — will land in Part 3b.
+
+---
+
 ## Step 26 Part 2 — Flow View Dependency Editing: List View UI (April 2026)
 
 ### Added
