@@ -5,6 +5,61 @@ import {
 } from 'react'
 import { toggleStep } from '@/app/jobs/actions'
 import type { JobStep, StepDependency } from '@/lib/types'
+import { playPop } from '@/lib/popSound'
+
+// Shared window event used across views so a pop in the list view also wakes
+// a bubble in the flow view (and vice versa) when they re-render.
+const UNLOCK_EVENT = 'geaux-ops:step-unlocked'
+
+// ── SVG pop burst — renders inside a bubble's transformed group ───────────────
+// Draws 7 gold/green particles + an expanding gold flash ring. Self-cleans via
+// forwards animations; the parent remounts via `key` on pop to replay.
+// Variation comes from the deterministic `seed` prop (the parent's pop tick)
+// so React's purity rules aren't violated by calls to `Math.random` in render.
+function BubblePopBurst({ radius, seed }: { radius: number; seed: number }) {
+  const rot    = ((seed * 0.6180339887) % 1) * Math.PI * 2
+  const colors = ['#C8A44E', '#4ADE80', '#EAB308', '#F5D78A']
+  const parts  = Array.from({ length: 7 }, (_, i) => {
+    const angle = rot + (i / 7) * Math.PI * 2
+    const dist  = radius + 14 + ((seed * 13 + i * 7) % 10)
+    return {
+      tx: Math.cos(angle) * dist,
+      ty: Math.sin(angle) * dist,
+      color: colors[i % colors.length],
+      delay: (i * 7 + (seed % 5)) % 40,
+    }
+  })
+  return (
+    <g pointerEvents="none">
+      {/* Expanding gold flash ring */}
+      <circle
+        r={radius}
+        cx={0}
+        cy={0}
+        fill="rgba(200,164,78,0.35)"
+        stroke="rgba(200,164,78,0.6)"
+        strokeWidth={1.2}
+        className="geaux-pop-flash-svg"
+      />
+      {/* Radial particle spray */}
+      {parts.map((p, i) => (
+        <circle
+          key={i}
+          cx={0}
+          cy={0}
+          r={2.4}
+          fill={p.color}
+          className="geaux-pop-particle-svg"
+          style={{
+            ['--tx' as string]: `${p.tx}px`,
+            ['--ty' as string]: `${p.ty}px`,
+            animationDelay: `${p.delay}ms`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </g>
+  )
+}
 
 // ── Text wrap helper ──────────────────────────────────────────────────────────
 
@@ -235,6 +290,49 @@ export function FlowView({
   const [lockedTip, setLockedTip] = useState<{ stepId: string; text: string } | null>(null)
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // ── Pop animations ────────────────────────────────────────────────────────
+  // Per-step pop tick — incrementing the tick remounts the burst so it replays
+  const [popTicks, setPopTicks] = useState<Record<string, number>>({})
+  // Set of step IDs currently playing the "wake up" glow (cascade unlock)
+  const [wakingIds, setWakingIds] = useState<Set<string>>(new Set())
+  const wakeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  function triggerPop(stepId: string) {
+    setPopTicks(p => ({ ...p, [stepId]: (p[stepId] ?? 0) + 1 }))
+  }
+
+  function triggerWake(ids: string[]) {
+    if (ids.length === 0) return
+    setWakingIds(prev => {
+      const next = new Set(prev)
+      for (const id of ids) next.add(id)
+      return next
+    })
+    for (const id of ids) {
+      const prior = wakeTimers.current.get(id)
+      if (prior) clearTimeout(prior)
+      const t = setTimeout(() => {
+        setWakingIds(prev => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        wakeTimers.current.delete(id)
+      }, 1000)
+      wakeTimers.current.set(id, t)
+    }
+  }
+
+  // Listen for unlock events from StepItem (cross-view cascade wake-up)
+  useEffect(() => {
+    function onUnlock(e: Event) {
+      const detail = (e as CustomEvent<{ stepIds: string[] }>).detail
+      if (detail?.stepIds?.length) triggerWake(detail.stepIds)
+    }
+    window.addEventListener(UNLOCK_EVENT, onUnlock)
+    return () => window.removeEventListener(UNLOCK_EVENT, onUnlock)
+  }, [])
+
   // Toast shown after a toggle when steps were unblocked or cascade-reverted
   const [toast, setToast] = useState<{ kind: 'unblock' | 'revert'; text: string } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -297,6 +395,11 @@ export function FlowView({
     }
     const next = !(doneMap[stepId] ?? false)
     setDoneMap(p => ({ ...p, [stepId]: next }))
+    // Only completion gets the pop + SFX — uncheck is a silent reverse fade
+    if (next) {
+      triggerPop(stepId)
+      playPop()
+    }
     startTransition(async () => {
       const res = await toggleStep(stepId, next)
       if (res?.error) {
@@ -305,6 +408,16 @@ export function FlowView({
       }
       if (next && res.unlockedStepNames.length > 0) {
         const names = res.unlockedStepNames
+        // Resolve names → IDs and broadcast so newly-unlocked bubbles wake up
+        const ids = names
+          .map(n => steps.find(s => s.text === n)?.id)
+          .filter((id): id is string => !!id)
+        triggerWake(ids)
+        if (ids.length > 0) {
+          window.dispatchEvent(
+            new CustomEvent(UNLOCK_EVENT, { detail: { stepIds: ids } }),
+          )
+        }
         showToast(
           'unblock',
           names.length === 1
@@ -452,6 +565,9 @@ export function FlowView({
             const fSize   = n.level === 1 ? 9.5 : 8.5
             const locked  = lockedSet.has(n.step.id)
             const groupOp = locked ? 0.5 : 1
+            const popTick = popTicks[n.step.id] ?? 0
+            const popping = popTick > 0 && n.step.done
+            const waking  = wakingIds.has(n.step.id)
 
             return (
               <g
@@ -461,6 +577,16 @@ export function FlowView({
                 onMouseDown={e => e.stopPropagation()}  // prevent pan start on node click
                 style={{ cursor: readOnly ? 'default' : 'pointer', opacity: groupOp, transition: 'opacity 300ms ease' }}
               >
+                {/* Cascade wake-up ring — gentle gold pulse for newly-unlocked bubbles */}
+                {waking && !n.step.done && (
+                  <circle
+                    key={`wake-${n.step.id}`}
+                    r={n.r + 4} fill="none"
+                    stroke="#C8A44E" strokeWidth={1.5}
+                    className="geaux-pop-wake-svg"
+                  />
+                )}
+
                 {/* Pulse glow ring for high-impact steps (suppressed while locked) */}
                 {s.glow && !locked && (
                   <circle
@@ -470,29 +596,45 @@ export function FlowView({
                   />
                 )}
 
-                {/* Bubble */}
-                <circle
-                  r={n.r}
-                  fill={s.fill}
-                  stroke={locked ? '#EAB308' : s.stroke}
-                  strokeWidth={s.strokeW}
-                  strokeDasharray={locked ? '3 2' : undefined}
-                  filter={
-                    n.step.done
-                      ? 'url(#fv-glow-green)'
-                      : (s.glow && !locked)
-                        ? 'url(#fv-glow-gold)'
-                        : undefined
-                  }
-                />
-
-                {/* Checkmark for completed */}
-                {n.step.done && (
-                  <path
-                    d={`M${-n.r*0.3},${-n.r*0.04} L${-n.r*0.08},${n.r*0.24} L${n.r*0.32},${-n.r*0.27}`}
-                    stroke="#4ADE80" strokeWidth={2.2}
-                    strokeLinecap="round" strokeLinejoin="round" fill="none"
+                {/* Inner group animates scale-burst on pop (around bubble centre) */}
+                <g
+                  key={popping ? `pop-${popTick}` : 'idle'}
+                  className={popping ? 'geaux-pop-scale-svg' : ''}
+                >
+                  {/* Bubble */}
+                  <circle
+                    r={n.r}
+                    fill={s.fill}
+                    stroke={locked ? '#EAB308' : s.stroke}
+                    strokeWidth={s.strokeW}
+                    strokeDasharray={locked ? '3 2' : undefined}
+                    style={{ transition: 'fill 280ms ease, stroke 280ms ease' }}
+                    filter={
+                      n.step.done
+                        ? 'url(#fv-glow-green)'
+                        : (s.glow && !locked)
+                          ? 'url(#fv-glow-gold)'
+                          : undefined
+                    }
                   />
+
+                  {/* Checkmark for completed — draws in when newly popped */}
+                  {n.step.done && (
+                    <path
+                      key={`check-${popTick}`}
+                      d={`M${-n.r*0.3},${-n.r*0.04} L${-n.r*0.08},${n.r*0.24} L${n.r*0.32},${-n.r*0.27}`}
+                      stroke="#4ADE80" strokeWidth={2.2}
+                      strokeLinecap="round" strokeLinejoin="round" fill="none"
+                      className={popping ? 'geaux-check-draw' : ''}
+                    />
+                  )}
+                </g>
+
+                {/* Particle burst + flash — rendered on top when popping */}
+                {popping && (
+                  <g key={`burst-${popTick}`}>
+                    <BubblePopBurst radius={n.r} seed={popTick} />
+                  </g>
                 )}
 
                 {/* Label */}

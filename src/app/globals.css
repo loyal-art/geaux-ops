@@ -69,3 +69,141 @@ body {
 .ramp-complete-anim {
   animation: ramp-complete-pulse 2.2s ease-out forwards;
 }
+
+/* ── Geaux Ops Pops — bubble pop animation ──────────────────────────────── */
+
+/* Tactile scale burst — 1 → 1.15 → 1 with bounce */
+@keyframes geaux-pop-scale {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.15); }
+  70%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+.geaux-pop-scale {
+  animation: geaux-pop-scale 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.geaux-pop-scale-svg {
+  transform-origin: 0 0;
+  animation: geaux-pop-scale 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Gentle unpop — quick fade reverse (no bounce) */
+@keyframes geaux-unpop-fade {
+  0%   { opacity: 1; transform: scale(1); }
+  100% { opacity: 0.55; transform: scale(0.92); }
+}
+.geaux-unpop {
+  animation: geaux-unpop-fade 180ms ease-in forwards;
+}
+
+/* Radial gold flash that expands out from the bubble centre */
+@keyframes geaux-pop-flash {
+  0%   { transform: scale(0.3); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.geaux-pop-flash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%) scale(0.3);
+  background: radial-gradient(circle, rgba(200,164,78,0.75) 0%, rgba(200,164,78,0.15) 55%, rgba(200,164,78,0) 75%);
+  animation: geaux-pop-flash 480ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* SVG-space radial flash (grows a ring outward) */
+@keyframes geaux-pop-flash-svg {
+  0%   { transform: scale(0.5); opacity: 0.9; }
+  100% { transform: scale(2.0); opacity: 0; }
+}
+.geaux-pop-flash-svg {
+  transform-origin: 0 0;
+  animation: geaux-pop-flash-svg 480ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* Particle burst — flies out radially via --tx/--ty, fades + shrinks */
+@keyframes geaux-pop-particle {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, 0px))) scale(0.25); opacity: 0; }
+}
+.geaux-pop-particle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  animation: geaux-pop-particle 620ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+/* SVG-space particle burst (circles inside an SVG group) */
+@keyframes geaux-pop-particle-svg {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.25); opacity: 0; }
+}
+.geaux-pop-particle-svg {
+  transform-origin: 0 0;
+  animation: geaux-pop-particle-svg 640ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+/* List-view shimmer overlay — gold sweep across the row */
+@keyframes geaux-pop-shimmer {
+  0%   { opacity: 0; background-position: -120% 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { opacity: 0; background-position: 220% 0; }
+}
+.geaux-pop-shimmer {
+  position: absolute;
+  inset: 0;
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(200,164,78,0.22) 40%,
+    rgba(255,255,255,0.12) 55%,
+    rgba(200,164,78,0.22) 65%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  animation: geaux-pop-shimmer 720ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* Cascade wake-up — gentle pulse glow on newly-unlocked rows/bubbles */
+@keyframes geaux-pop-wake {
+  0%   { box-shadow: 0 0 0 0 rgba(200,164,78,0); }
+  35%  { box-shadow: 0 0 0 6px rgba(200,164,78,0.28); }
+  100% { box-shadow: 0 0 0 0 rgba(200,164,78,0); }
+}
+.geaux-pop-wake {
+  border-radius: 0.75rem;
+  animation: geaux-pop-wake 1000ms ease-out;
+}
+
+/* SVG-space wake-up ring for Flow View bubbles */
+@keyframes geaux-pop-wake-svg {
+  0%   { transform: scale(0.85); opacity: 0; }
+  35%  { transform: scale(1.1);  opacity: 0.75; }
+  100% { transform: scale(1.4);  opacity: 0; }
+}
+.geaux-pop-wake-svg {
+  transform-origin: 0 0;
+  animation: geaux-pop-wake-svg 950ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* Checkmark draw-in for Flow View bubbles */
+@keyframes geaux-check-draw {
+  0%   { stroke-dashoffset: 36; opacity: 0; }
+  20%  { opacity: 1; }
+  100% { stroke-dashoffset: 0;  opacity: 1; }
+}
+.geaux-check-draw {
+  stroke-dasharray: 36;
+  animation: geaux-check-draw 340ms 140ms ease-out both;
+}
