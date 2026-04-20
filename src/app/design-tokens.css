@@ -1,0 +1,223 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Geaux Ops — Design Tokens
+   Phase 3 — Stage 1: Token infrastructure only.
+   Direction: "Playful + Energetic"
+
+   This file establishes the full design-token system. It is import-only and
+   does not change any existing visual styling on its own. Components will be
+   migrated to these tokens in later stages of Phase 3.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Typography: Inter from Google Fonts ──────────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap");
+
+:root {
+  /* ── Color: Backgrounds ─────────────────────────────────────────────────── */
+  --bg-primary:   #0F1117;
+  --bg-secondary: #1A1D27;
+  --bg-tertiary:  #242833;
+  --bg-elevated:  #2A2F3D;
+
+  /* ── Color: Text ────────────────────────────────────────────────────────── */
+  --text-primary:   #E8E9ED;
+  --text-secondary: #8B8F9E;
+  --text-tertiary:  #6B6F7D;
+  --text-muted:     #4A4E5C;
+
+  /* ── Color: Accents (Gold) ──────────────────────────────────────────────── */
+  --accent-gold:       #C8A44E;
+  --accent-gold-light: #E8C878;
+  --accent-gold-dark:  #A88A3E;
+
+  /* ── Color: Semantic status ─────────────────────────────────────────────── */
+  --status-in-progress: #60A5FA;
+  --status-waiting:     #EAB308;
+  --status-ready:       #4ADE80;
+  --status-queued:      #8B8F9E;
+  --status-blocked:     #F87171;
+  --status-completed:   #4ADE80;
+
+  /* ── Color: Category ────────────────────────────────────────────────────── */
+  --cat-business: #60A5FA;
+  --cat-home:     #A78BFA;
+  --cat-personal: #FB923C;
+  --cat-misc:     #8B8F9E;
+
+  /* ── Color: Radial gradients (for bubbles) ──────────────────────────────── */
+  --gradient-gold:   radial-gradient(circle at 30% 30%, #E8C878 0%, #C8A44E 55%, #A88A3E 100%);
+  --gradient-blue:   radial-gradient(circle at 30% 30%, #93C5FD 0%, #60A5FA 55%, #3B82F6 100%);
+  --gradient-green:  radial-gradient(circle at 30% 30%, #86EFAC 0%, #4ADE80 55%, #22C55E 100%);
+  --gradient-purple: radial-gradient(circle at 30% 30%, #C4B5FD 0%, #A78BFA 55%, #8B5CF6 100%);
+  --gradient-orange: radial-gradient(circle at 30% 30%, #FDBA74 0%, #FB923C 55%, #EA580C 100%);
+  --gradient-red:    radial-gradient(circle at 30% 30%, #FCA5A5 0%, #F87171 55%, #EF4444 100%);
+
+  /* ── Typography: Family ─────────────────────────────────────────────────── */
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* ── Typography: Size scale ─────────────────────────────────────────────── */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  28px;
+  --text-4xl:  32px;
+
+  /* ── Typography: Weights ────────────────────────────────────────────────── */
+  --weight-regular:  400;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-extra:    800;
+  --weight-black:    900;
+
+  /* ── Typography: Letter spacing ─────────────────────────────────────────── */
+  --tracking-tight:  -0.5px;
+  --tracking-normal: 0;
+  --tracking-wide:   1px;
+  --tracking-wider:  2px;
+
+  /* ── Spacing scale ──────────────────────────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── Radius ─────────────────────────────────────────────────────────────── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+  /* ── Shadows: Elevation ─────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.55);
+
+  /* ── Shadows: Glows (accent-tinted) ─────────────────────────────────────── */
+  --glow-gold:   0 0 16px rgba(200, 164, 78, 0.40);
+  --glow-blue:   0 0 16px rgba(96, 165, 250, 0.40);
+  --glow-green:  0 0 16px rgba(74, 222, 128, 0.40);
+  --glow-purple: 0 0 16px rgba(167, 139, 250, 0.40);
+  --glow-orange: 0 0 16px rgba(251, 146, 60, 0.40);
+  --glow-red:    0 0 16px rgba(248, 113, 113, 0.40);
+
+  /* ── Animation: Duration ────────────────────────────────────────────────── */
+  --duration-fast:   150ms;
+  --duration-normal: 250ms;
+  --duration-slow:   400ms;
+
+  /* ── Animation: Easing ──────────────────────────────────────────────────── */
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Tailwind @theme bridge ─────────────────────────────────────────────────
+   Re-exposes the custom properties above to Tailwind 4's theme layer so
+   utilities like bg-bg-primary / text-text-secondary / rounded-2xl /
+   shadow-lg / ease-bounce can be generated on demand without duplicating
+   the token values. Visual output is unchanged because no component has
+   yet been migrated to these classes.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme inline {
+  --color-bg-primary:   var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary:  var(--bg-tertiary);
+  --color-bg-elevated:  var(--bg-elevated);
+
+  --color-text-primary:   var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary:  var(--text-tertiary);
+  --color-text-muted:     var(--text-muted);
+
+  --color-accent-gold:       var(--accent-gold);
+  --color-accent-gold-light: var(--accent-gold-light);
+  --color-accent-gold-dark:  var(--accent-gold-dark);
+
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-waiting:     var(--status-waiting);
+  --color-status-ready:       var(--status-ready);
+  --color-status-queued:      var(--status-queued);
+  --color-status-blocked:     var(--status-blocked);
+  --color-status-completed:   var(--status-completed);
+
+  --color-cat-business: var(--cat-business);
+  --color-cat-home:     var(--cat-home);
+  --color-cat-personal: var(--cat-personal);
+  --color-cat-misc:     var(--cat-misc);
+
+  --font-display: var(--font-display);
+
+  --text-xs:   var(--text-xs);
+  --text-sm:   var(--text-sm);
+  --text-base: var(--text-base);
+  --text-lg:   var(--text-lg);
+  --text-xl:   var(--text-xl);
+  --text-2xl:  var(--text-2xl);
+  --text-3xl:  var(--text-3xl);
+  --text-4xl:  var(--text-4xl);
+
+  --ease-bounce: var(--ease-bounce);
+  --ease-smooth: var(--ease-smooth);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Utility classes (opt-in — no existing component uses these yet)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Bubble — circular element with a radial gradient fill.
+   Set `--bubble-gradient` to one of the --gradient-* tokens, or override
+   `background` directly. Defaults to gold. */
+.bubble {
+  display: inline-block;
+  border-radius: var(--radius-full);
+  background: var(--bubble-gradient, var(--gradient-gold));
+  aspect-ratio: 1 / 1;
+}
+
+/* Accent glows — additive outer glows in token palette */
+.glow-gold   { box-shadow: var(--glow-gold); }
+.glow-blue   { box-shadow: var(--glow-blue); }
+.glow-green  { box-shadow: var(--glow-green); }
+.glow-purple { box-shadow: var(--glow-purple); }
+.glow-orange { box-shadow: var(--glow-orange); }
+.glow-red    { box-shadow: var(--glow-red); }
+
+/* Gold gradient text — clips a gold linear gradient to the text glyphs */
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--accent-gold-light) 0%, var(--accent-gold) 50%, var(--accent-gold-dark) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Card primitives */
+.card-elevated {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+.card-floating {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Slow pulse — 3s gentle opacity breathe, typically used on idle indicators */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}
+.pulse-slow {
+  animation: pulse-slow 3s var(--ease-smooth) infinite;
+}
