@@ -41,6 +41,8 @@ export interface Job {
   status:            JobStatus
   priority:          JobPriority
   assigned_to:       string | null
+  owner_user_id:     string | null
+  assigned_team_id:  string | null
   group_id:          string | null
   allowance_total:   number
   due_date:          string | null

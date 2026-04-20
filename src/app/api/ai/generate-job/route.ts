@@ -57,11 +57,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid AI response format' }, { status: 500 })
     }
 
+    // Try to match the "who's this for?" input against a workspace name so the
+    // assignment step can pre-fill the workspace dropdown.
+    let matchedGroupId: string | null = null
+    if (client?.trim()) {
+      const { data: matchedGroup } = await supabase
+        .from('groups')
+        .select('id')
+        .ilike('name', client.trim())
+        .limit(1)
+        .maybeSingle()
+      matchedGroupId = matchedGroup?.id ?? null
+    }
+
     return NextResponse.json({
       title: result.title,
       steps: result.steps,
       priority: ['urgent', 'normal', 'low'].includes(result.priority) ? result.priority : 'normal',
       category: ['business', 'home', 'personal', 'misc'].includes(result.category) ? result.category : 'misc',
+      matchedGroupId,
     })
   } catch (err) {
     console.error('AI generation error:', err)

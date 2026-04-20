@@ -8,7 +8,9 @@ import { updateJobStatus, reopenJob } from '@/app/jobs/actions'
 import { CategoryChips } from '@/components/jobs/CategoryChips'
 import { MarkWaitingButton } from '@/components/jobs/MarkWaitingButton'
 import { CompleteJobButton } from '@/components/jobs/CompleteJobButton'
+import { JobAssignments } from '@/components/jobs/JobAssignments'
 import { getPermissions } from '@/lib/permissions'
+import { loadAssignableWorkspaces } from '@/lib/assignments'
 import type { JobStep, JobComment, JobStatus, JobCategory, StepDependency } from '@/lib/types'
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -145,6 +147,41 @@ export default async function JobDetailPage({
   }
   const perms = getPermissions(effectiveRole)
 
+  // ── Assignment data (workspace / owner / assignee / team) ─────────────────
+  const [
+    { data: groupRow },
+    { data: ownerRow },
+    { data: assigneeRow },
+    { data: teamRow },
+  ] = await Promise.all([
+    job.group_id
+      ? supabase.from('groups').select('id, name').eq('id', job.group_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    job.owner_user_id
+      ? supabase.from('users').select('id, display_name, email').eq('id', job.owner_user_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    job.assigned_to
+      ? supabase.from('users').select('id, display_name, email').eq('id', job.assigned_to).maybeSingle()
+      : Promise.resolve({ data: null }),
+    job.assigned_team_id
+      ? supabase.from('teams').select('id, name, team_memberships(user_id)').eq('id', job.assigned_team_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  const teamLite = teamRow
+    ? {
+        id:           teamRow.id as string,
+        name:         teamRow.name as string,
+        member_count: ((teamRow as { team_memberships?: Array<{ user_id: string }> }).team_memberships ?? []).length,
+      }
+    : null
+
+  // Only load the workspace list + edit capability when the viewer could edit.
+  const canEditAssignments = perms.canCreateJobs
+  const assignableWorkspaces = canEditAssignments
+    ? await loadAssignableWorkspaces(supabase, user.id)
+    : []
+
   const steps          = ((job.job_steps ?? []) as JobStep[]).sort((a, b) => a.sort_order - b.sort_order)
   const totalSteps     = steps.length
   const completedSteps = steps.filter(s => s.done).length
@@ -261,6 +298,30 @@ export default async function JobDetailPage({
       </div>
 
       <div className="px-5">
+
+        {/* ── Assignments ── */}
+        <JobAssignments
+          jobId={job.id}
+          currentUserId={user.id}
+          canEdit={canEditAssignments}
+          workspaces={assignableWorkspaces}
+          group={groupRow ? { id: groupRow.id as string, name: groupRow.name as string } : null}
+          owner={ownerRow ? {
+            id:           ownerRow.id as string,
+            display_name: (ownerRow.display_name as string | null) ?? null,
+            email:        (ownerRow.email as string | null) ?? null,
+          } : null}
+          assignee={assigneeRow ? {
+            id:           assigneeRow.id as string,
+            display_name: (assigneeRow.display_name as string | null) ?? null,
+            email:        (assigneeRow.email as string | null) ?? null,
+          } : null}
+          team={teamLite}
+          groupId={job.group_id ?? null}
+          ownerUserId={job.owner_user_id ?? null}
+          assignedTo={job.assigned_to ?? null}
+          assignedTeamId={job.assigned_team_id ?? null}
+        />
 
         {/* ── Steps ── */}
         <JobStepsSection

@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createJob } from '@/app/jobs/actions'
+import { loadAssignableWorkspaces } from '@/lib/assignments'
+import { AssignmentFields } from '@/components/jobs/AssignmentFields'
 import type { JobTemplate, TemplateStep } from '@/lib/types'
 
 // ── Submit button (must be client for useFormStatus, inline here via wrapper) ─
@@ -107,6 +109,7 @@ export default async function NewJobPage({
     if (!template) redirect('/jobs/new')
 
     const steps = (template.default_steps as TemplateStep[]) ?? []
+    const workspaces = await loadAssignableWorkspaces(supabase, user.id)
 
     return (
       <div className="max-w-lg mx-auto px-5 pt-12 pb-6">
@@ -184,6 +187,18 @@ export default async function NewJobPage({
               <option value="home">Home</option>
               <option value="personal">Personal</option>
             </select>
+          </div>
+
+          {/* Assignment */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#C8A44E' }}>
+              Assignment
+            </p>
+            <AssignmentFields
+              workspaces={workspaces}
+              currentUserId={user.id}
+              asHiddenInputs
+            />
           </div>
 
           {/* Steps preview */}

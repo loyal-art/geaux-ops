@@ -9,7 +9,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const { title, client_name, finish_definition, focus, priority, category, steps } = await request.json()
+  const {
+    title, client_name, finish_definition, focus, priority, category, steps,
+    group_id: groupIdOverride,
+    owner_user_id: ownerUserIdOverride,
+    assigned_to: assignedToOverride,
+    assigned_team_id: assignedTeamIdOverride,
+  } = await request.json()
 
   if (!title?.trim() || !Array.isArray(steps) || steps.length === 0) {
     return NextResponse.json({ error: 'Title and steps are required' }, { status: 400 })
@@ -63,20 +69,28 @@ export async function POST(request: Request) {
     }
   }
 
+  // User-provided assignment values take precedence over the AI-inferred match.
+  const finalGroupId        = (typeof groupIdOverride === 'string' && groupIdOverride) ? groupIdOverride : groupId
+  const finalOwnerUserId    = (typeof ownerUserIdOverride === 'string' && ownerUserIdOverride) ? ownerUserIdOverride : user.id
+  const finalAssignedTo     = (typeof assignedToOverride === 'string' && assignedToOverride) ? assignedToOverride : null
+  const finalAssignedTeamId = (typeof assignedTeamIdOverride === 'string' && assignedTeamIdOverride) ? assignedTeamIdOverride : null
+
   // Create the job
   const { data: job, error: jobError } = await supabase
     .from('jobs')
     .insert({
       title: title.trim(),
       client_name: resolvedClientName,
-      group_id: groupId,
+      group_id: finalGroupId,
       finish_definition: finish_definition?.trim() || null,
       focus: focus?.trim() || null,
       priority: priority || 'normal',
       category: category || 'misc',
       project_id: projectId,
       status: 'in_progress',
-      assigned_to: user.id,
+      owner_user_id:    finalOwnerUserId,
+      assigned_to:      finalAssignedTo,
+      assigned_team_id: finalAssignedTeamId,
       created_by: user.id,
     })
     .select()
