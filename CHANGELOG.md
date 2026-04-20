@@ -9,6 +9,63 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Geaux Ops Pops — Bubble Pop Animation (April 2026)
+
+Signature completion animation: when a step is marked done, the bubble/checkbox gets a satisfying tactile pop with particle burst, gold flash, and an optional short "pop" SFX. Cascading unlocks wake up their newly-available steps with a gentle gold pulse. Unchecking is intentionally quiet — a subtle reverse fade, never a pop.
+
+### Added
+- `src/lib/popSound.ts` — Web Audio API "pop" SFX:
+  - Sine oscillator sweeping 820 Hz → 180 Hz over 130 ms, shaped by a ~200 ms AD envelope (exponential attack to 0.22 gain, exponential decay to near zero)
+  - Shared `AudioContext` is lazily created on first play; auto-resumes if suspended (browsers suspend until a user gesture)
+  - `isPopSoundEnabled()` checks `localStorage['geaux-pop-sounds']` (default `true` when the key is missing) — every `playPop()` call reads the current preference so toggling the pref takes effect immediately
+  - All operations wrapped in try/catch — silently no-ops in SSR, private browsing, and browsers without Web Audio support
+- `src/components/profile/PopSoundToggle.tsx` — new preferences toggle:
+  - Backed by `useLocalStorage('geaux-pop-sounds', true)` (default on per spec)
+  - Matches the visual style of `MyDayToggle` — 40 × 40 gold-tinted icon square, toggle switch with gold active state
+  - When switched on, plays a sample pop (deferred via `setTimeout(0)` so `localStorage` is written before `playPop` reads it)
+- `src/app/globals.css` — new keyframe set under the "Geaux Ops Pops" heading:
+  - `geaux-pop-scale` / `.geaux-pop-scale` / `.geaux-pop-scale-svg` — 1 → 1.15 → 0.96 → 1 over 220 ms with a `cubic-bezier(0.34, 1.56, 0.64, 1)` bounce easing (the SVG variant uses `transform-origin: 0 0` so it pivots on the bubble's local origin)
+  - `geaux-unpop-fade` / `.geaux-unpop` — 180 ms opacity + scale fade (the uncheck-reverse, never paired with particles or sound)
+  - `geaux-pop-flash` / `.geaux-pop-flash` and `geaux-pop-flash-svg` / `.geaux-pop-flash-svg` — gold radial flash that expands from scale 0.3→1.8 (HTML) / 0.5→2.0 (SVG) while fading over 480 ms
+  - `geaux-pop-particle` / `.geaux-pop-particle` and `geaux-pop-particle-svg` / `.geaux-pop-particle-svg` — radial particle fly-out; per-particle direction driven by `--tx` / `--ty` CSS variables; 620–640 ms with a decelerating cubic-bezier; shrinks to 0.25× and fades to 0 (the HTML variant uses `translate(-50%, -50%)` centering via `calc()`)
+  - `geaux-pop-shimmer` / `.geaux-pop-shimmer` — diagonal gold-tinted sweep that slides across a row from -120% → 220% background-position over 720 ms (used on list-view rows behind the checkbox/text)
+  - `geaux-pop-wake` / `.geaux-pop-wake` (HTML box-shadow pulse) and `geaux-pop-wake-svg` / `.geaux-pop-wake-svg` (SVG ring scale pulse) — ~950–1000 ms gentle gold glow used for cascade "wake up" animations on newly-unlocked rows / bubbles
+  - `geaux-check-draw` / `.geaux-check-draw` — 340 ms `stroke-dashoffset: 36 → 0` check-draw animation (140 ms delay so it plays after the bubble pop settles); applied to the Flow View checkmark path when a bubble just popped
+
+### Changed
+- `src/components/jobs/StepItem.tsx`:
+  - New local `CheckboxBurst` component — 7 gold/green particles radiating in an even ring (starting angle randomised per mount) + a centred 28 × 28 gold radial flash; each particle has a small random delay (0–35 ms) so the burst feels organic
+  - New state: `popTick` (incremented on each completion so the burst overlay remounts and replays via React `key`) and `waking` (toggled for 1000 ms on cascade unlock)
+  - On completion toggle, the checkbox square animates with `geaux-pop-scale`, the row paints a gold `geaux-pop-shimmer` sweep, the `CheckboxBurst` overlay fires, and `playPop()` runs — uncheck does none of this (no pop on unpop, per spec)
+  - After a successful toggle with `unlockedStepNames.length > 0`, resolves names → step IDs via `allSteps` and dispatches a `window.dispatchEvent(new CustomEvent('geaux-ops:step-unlocked', { detail: { stepIds } }))`
+  - New `useEffect` subscribes to `geaux-ops:step-unlocked`; if the row's own `step.id` is in the payload, flips `waking` on for 1000 ms so the row pulses gold — this is how cascade-unlocked rows wake up regardless of which view triggered the completion
+  - Checkbox wrapper is now a relative positioning context so the particle burst can absolute-overlay past the 20 × 20 bounds via `overflow-visible`
+- `src/components/jobs/FlowView.tsx`:
+  - New local `BubblePopBurst` component — draws 7 gold/green `<circle>` particles and an expanding gold ring inside the bubble's transformed `<g>` so the burst scales and pans with the bubble in the SVG's pan/zoom coordinate space
+  - New state: `popTicks: Record<stepId, tick>` (incremented to replay the pop per bubble) and `wakingIds: Set<stepId>` (auto-expires per step via `wakeTimers` Map; 1000 ms per step so multiple simultaneous unlocks each get their own timer)
+  - New helpers `triggerPop(stepId)` and `triggerWake(ids)` with proper timer cleanup
+  - `handleBubbleTap` — on completion path, calls `triggerPop` + `playPop`; after a successful toggle with `unlockedStepNames`, resolves names → IDs, calls `triggerWake` locally, and dispatches the same `geaux-ops:step-unlocked` event so the list view also wakes up
+  - New `useEffect` subscribes to `geaux-ops:step-unlocked` so Flow View bubbles wake when the unlock came from the list view
+  - Each step node now renders: (1) a `.geaux-pop-wake-svg` ring when `waking`, (2) an inner `<g>` that toggles `.geaux-pop-scale-svg` while popping (keyed on `pop-${tick}` so React remounts and replays the animation), (3) the bubble `<circle>` with a new `transition: fill 280ms, stroke 280ms` so the fill morphs smoothly to green when the step flips done, (4) the checkmark `<path>` with `.geaux-check-draw` while popping so it strokes in, (5) the `<BubblePopBurst>` particle group on top
+- `src/components/profile/PopSoundToggle.tsx` added and mounted in `src/app/profile/page.tsx` under the existing "Preferences" section (stacked with `MyDayToggle` via a `space-y-2` wrapper)
+
+### Notes
+- **Cross-view cascade**: both list and flow views only render one at a time (controlled by `JobStepsSection`), but dispatching unlock events via `window.dispatchEvent` keeps the semantics consistent: whichever view is mounted reacts to unlocks, and if the user toggles views mid-animation the state carrier is the step's actual DOM, not a ref in the event bus.
+- **Performance**: all animations are CSS keyframes — no JS animation loop or `requestAnimationFrame` — so the browser compositor handles them on the GPU. Particle direction is passed via CSS custom properties so each particle's animation is a single transform+opacity interpolation.
+- **Uncheck behavior**: per spec, un-completing a step plays *no* pop — neither the scale burst, the flash, the particles, nor the SFX. The row / bubble simply flips back to its empty state via the existing CSS `transition: fill / stroke / background-color` that was already in place. `geaux-unpop-fade` is available as a drop-in for future use but is not wired up yet since the existing color transitions already look like a quiet fade.
+- **Spec compliance checklist**:
+  - ✅ Quick scale burst (1 → 1.15 → 1, ~220 ms, bounce easing)
+  - ✅ 7 colored particles in radial burst (gold + green accents), fade + shrink as they fly
+  - ✅ Gold radial flash from bubble centre
+  - ✅ Short "pop" SFX via Web Audio (default on, toggle in profile preferences, localStorage-backed)
+  - ✅ Flow View: smooth transition to completed state (green fill + drawn-in checkmark + particles)
+  - ✅ List View: gold shimmer overlay + tiny particle burst at checkbox
+  - ✅ Cascade pops: newly-unlocked rows/bubbles get a gentle gold pulse
+  - ✅ Uncomplete = quiet unpop (no pop)
+  - ✅ CSS animations everywhere; no JS animation loops
+
+---
+
 ## Step 26 Part 3a — Bug Fix: Cascade-Revert on Uncheck (April 2026)
 
 ### Fixed

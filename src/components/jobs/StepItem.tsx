@@ -3,6 +3,52 @@
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { toggleStep, addStepDependency, removeStepDependency } from '@/app/jobs/actions'
 import type { JobStep, StepDependency } from '@/lib/types'
+import { playPop } from '@/lib/popSound'
+
+// ── Shared window event for cross-component cascade wake-ups ──────────────────
+const UNLOCK_EVENT = 'geaux-ops:step-unlocked'
+
+// Radial particle burst + gold flash, anchored over the checkbox square.
+// Mounts on demand; parent remounts via `key` to replay.
+// Variation comes from the deterministic `seed` prop (the parent's pop tick)
+// so React's purity rules aren't violated by calls to `Math.random` in render.
+function CheckboxBurst({ seed }: { seed: number }) {
+  // Golden-ratio hash → a rotation in [0, 2π) that shifts visibly per pop
+  const rot = ((seed * 0.6180339887) % 1) * Math.PI * 2
+  const colors = ['#C8A44E', '#4ADE80', '#EAB308', '#F5D78A']
+  const parts = Array.from({ length: 7 }, (_, i) => {
+    const angle = rot + (i / 7) * Math.PI * 2
+    // Per-particle distance jitter in [18, 28) driven deterministically by (seed, i)
+    const dist  = 18 + ((seed * 13 + i * 7) % 10)
+    return {
+      tx: Math.cos(angle) * dist,
+      ty: Math.sin(angle) * dist,
+      color: colors[i % colors.length],
+      delay: (i * 7 + (seed % 5)) % 36,  // 0–35 ms stagger
+    }
+  })
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0">
+      <span
+        className="geaux-pop-flash"
+        style={{ width: 28, height: 28 }}
+      />
+      {parts.map((p, i) => (
+        <span
+          key={i}
+          className="geaux-pop-particle"
+          style={{
+            backgroundColor: p.color,
+            // CSS vars drive the per-particle fly-out direction
+            ['--tx' as string]: `${p.tx}px`,
+            ['--ty' as string]: `${p.ty}px`,
+            animationDelay: `${p.delay}ms`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </span>
+  )
+}
 
 // ── Inline dependency panel ───────────────────────────────────────────────────
 
@@ -184,9 +230,29 @@ export function StepItem({
   const [lockedMsg, setLockedMsg]    = useState(false)
   const toastTimer                   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Pop animation state — incremented on each completion so the overlay remounts
+  const [popTick, setPopTick]        = useState(0)
+  // Cascade wake-up — brief gold glow when another step's completion unlocks us
+  const [waking,  setWaking]         = useState(false)
+  const wakeTimer                    = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Keep local done in sync with server-revalidated prop (handles cascade-revert
   // when this step's blocker gets unchecked elsewhere)
   useEffect(() => { setDone(step.done) }, [step.done])
+
+  // Listen for the cross-component "step unlocked" event and fire a wake pulse
+  // when our own step ID is in the payload.
+  useEffect(() => {
+    function onUnlock(e: Event) {
+      const detail = (e as CustomEvent<{ stepIds: string[] }>).detail
+      if (!detail?.stepIds?.includes(step.id)) return
+      setWaking(true)
+      if (wakeTimer.current) clearTimeout(wakeTimer.current)
+      wakeTimer.current = setTimeout(() => setWaking(false), 1000)
+    }
+    window.addEventListener(UNLOCK_EVENT, onUnlock)
+    return () => window.removeEventListener(UNLOCK_EVENT, onUnlock)
+  }, [step.id])
 
   // Compute locked state from props (updates on each render / server revalidation)
   const blockerDeps        = allDependencies.filter(d => d.step_id === step.id)
@@ -209,12 +275,26 @@ export function StepItem({
     }
     const next = !done
     setDone(next)
+    // Only completion gets the pop — uncheck is a quiet un-pop handled via CSS
+    if (next) {
+      setPopTick(t => t + 1)
+      playPop()
+    }
     startTransition(async () => {
       const result = await toggleStep(step.id, next)
       if (result?.error) {
         setDone(done)
       } else if (next && result.unlockedStepNames.length > 0) {
         const names = result.unlockedStepNames
+        // Broadcast newly-unlocked step IDs so their rows wake up
+        const ids = names
+          .map(n => allSteps.find(s => s.text === n)?.id)
+          .filter((id): id is string => !!id)
+        if (ids.length > 0) {
+          window.dispatchEvent(
+            new CustomEvent(UNLOCK_EVENT, { detail: { stepIds: ids } }),
+          )
+        }
         showToast(
           'unblock',
           names.length === 1
@@ -234,24 +314,36 @@ export function StepItem({
   }
 
   const checkboxEl = (
-    <div
-      className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all"
-      style={{
-        backgroundColor: done    ? '#4ADE80'               : isLocked ? 'rgba(234,179,8,0.08)' : 'transparent',
-        borderColor:     done    ? '#4ADE80'               : isLocked ? 'rgba(234,179,8,0.4)'  : 'rgba(255,255,255,0.15)',
-        opacity: readOnly ? 0.5 : 1,
-      }}
-    >
-      {done ? (
-        <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
-          <path d="M1 4.5L4 7.5L10 1.5" stroke="#0F1117" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ) : isLocked ? (
-        <svg width="10" height="12" viewBox="0 0 10 12" fill="none" stroke="#EAB308" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="1" y="5" width="8" height="6.5" rx="1.5" />
-          <path d="M3 5V3.5a2 2 0 0 1 4 0V5" />
-        </svg>
-      ) : null}
+    <div className="relative flex-shrink-0 mt-0.5 w-5 h-5">
+      <div
+        className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${done && popTick > 0 ? 'geaux-pop-scale' : ''}`}
+        style={{
+          backgroundColor: done    ? '#4ADE80'               : isLocked ? 'rgba(234,179,8,0.08)' : 'transparent',
+          borderColor:     done    ? '#4ADE80'               : isLocked ? 'rgba(234,179,8,0.4)'  : 'rgba(255,255,255,0.15)',
+          opacity: readOnly ? 0.5 : 1,
+        }}
+      >
+        {done ? (
+          <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+            <path d="M1 4.5L4 7.5L10 1.5" stroke="#0F1117" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : isLocked ? (
+          <svg width="10" height="12" viewBox="0 0 10 12" fill="none" stroke="#EAB308" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="1" y="5" width="8" height="6.5" rx="1.5" />
+            <path d="M3 5V3.5a2 2 0 0 1 4 0V5" />
+          </svg>
+        ) : null}
+      </div>
+      {/* Particle burst — overflow extends past the 20×20 checkbox */}
+      {popTick > 0 && done && (
+        <span
+          key={popTick}
+          className="absolute inset-0 overflow-visible"
+          style={{ pointerEvents: 'none' }}
+        >
+          <CheckboxBurst seed={popTick} />
+        </span>
+      )}
     </div>
   )
 
@@ -308,7 +400,16 @@ export function StepItem({
         </div>
       )}
 
-      <div className="flex items-start gap-3 py-3">
+      <div className={`relative flex items-start gap-3 py-3 ${waking ? 'geaux-pop-wake' : ''}`}>
+        {/* Row-wide gold shimmer sweep on completion */}
+        {popTick > 0 && done && (
+          <span
+            key={`shim-${popTick}`}
+            aria-hidden
+            className="geaux-pop-shimmer"
+          />
+        )}
+
         {/* Toggle zone — button wraps only the checkbox + text */}
         {readOnly ? (
           <div className="flex flex-1 min-w-0 items-start gap-3">

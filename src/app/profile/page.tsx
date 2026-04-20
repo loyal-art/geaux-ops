@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { signOut } from '@/app/auth/actions'
 import { MyDayToggle } from '@/components/profile/MyDayToggle'
+import { PopSoundToggle } from '@/components/profile/PopSoundToggle'
 import { EditNameForm } from '@/components/profile/EditNameForm'
 import { ChangePasswordForm } from '@/components/profile/ChangePasswordForm'
 import { AvatarPicker } from '@/components/profile/AvatarPicker'
@@ -294,7 +295,10 @@ export default async function ProfilePage() {
       {/* ── Preferences ── */}
       <div className="px-5 mb-6">
         <SectionLabel label="Preferences" />
-        <MyDayToggle />
+        <div className="space-y-2">
+          <MyDayToggle />
+          <PopSoundToggle />
+        </div>
       </div>
 
       {/* ── Sign out ── */}
