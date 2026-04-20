@@ -33,7 +33,7 @@ export default async function GroupsManagePage({
   // All groups with members (and member user details)
   const { data: groupsData } = await supabase
     .from('groups')
-    .select('id, name, description, created_at, group_members(user_id, users(id, display_name, email, role))')
+    .select('id, name, description, created_at, group_members(user_id, role_in_group, users(id, display_name, email, role))')
     .order('created_at', { ascending: true })
 
   // All users (for adding to groups)
@@ -128,7 +128,7 @@ export default async function GroupsManagePage({
             <div className="space-y-3">
               {groups.map(g => {
                 type UserRow = { id: string; display_name: string | null; email: string; role: string }
-                type RawMember = { user_id: string; users: UserRow | UserRow[] | null }
+                type RawMember = { user_id: string; role_in_group: string | null; users: UserRow | UserRow[] | null }
                 const members = (g.group_members as RawMember[] ?? [])
 
                 return (
@@ -166,8 +166,9 @@ export default async function GroupsManagePage({
                       groupName={g.name}
                       description={g.description}
                       members={members.map(m => ({
-                        user_id: m.user_id,
-                        users: Array.isArray(m.users) ? (m.users[0] ?? null) : m.users,
+                        user_id:       m.user_id,
+                        role_in_group: m.role_in_group,
+                        users:         Array.isArray(m.users) ? (m.users[0] ?? null) : m.users,
                       }))}
                       allUsers={allUsers}
                     />

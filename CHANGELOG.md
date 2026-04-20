@@ -9,6 +9,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Group Editor — Inline workspace role assignment (April 2026)
+
+`/groups/manage` now lets an owner set each member's `role_in_group` directly on the page, and pick the initial role when adding someone to a group. No more "add, then navigate to the user's profile to set the role" round trip.
+
+### Added
+- **Per-member role dropdown** (`src/app/groups/manage/GroupEditor.tsx`) — each member row now renders a gold-tinted `<select>` between the name block and the Remove button, with the six canonical options `owner / admin / partner / manager / worker / viewer`. Changing the value fires `updateWorkspaceRole(groupId, userId, newRole)` from `@/app/users/actions` inside a `useTransition` — optimistic state update flips the dropdown immediately, and on server error the value reverts and an inline `roleError` message renders above the member list
+- **Initial-role dropdown on Add member** — the "Add member…" row gained a second `<select>` next to the user picker (same six options, defaults to `worker`). `handleAddMember` now forwards the chosen role into `addGroupMember(groupId, userId, roleInGroup)`, resetting the role picker back to `worker` after a successful add
+
+### Changed
+- `addGroupMember` action (`src/app/groups/manage/actions.ts`) now takes an optional `roleInGroup` third parameter (default `'worker'`) and inserts it as `role_in_group` on the `group_members` row
+- `GroupsManagePage` (`src/app/groups/manage/page.tsx`) selects `role_in_group` alongside `user_id` / `users(...)` on its `groups.group_members(...)` join and threads it through the `members` prop so `GroupEditor` can seed its per-member role map from server state instead of defaulting everything to `worker`
+- `Member` interface in `GroupEditor` gained `role_in_group: string | null`; the component now maintains `memberRoles: Map<userId, role>` alongside the existing `memberIds` set, mutating both in lockstep on add / remove
+
+### Notes
+- **Auth model**: `updateWorkspaceRole` uses `requireOwner()`, matching the existing Users-page role editor — only workspace owners can reassign roles via this UI. The local `addGroupMember` still only requires an authenticated user, preserving previous behavior (no regression for non-owner flows if they exist).
+- **Optimistic UX**: role changes update the dropdown instantly. If the server returns an error the value reverts and the error message renders above the list so the user sees both the failure and the reverted state without a full page flash.
+- **No schema change**: `group_members.role_in_group` already exists; this is purely a UI + wiring addition.
+
+---
+
 ## Phase 3 — Design Overhaul Stage 3: Responsive grid + animated category filter (April 2026)
 
 Third stage of the Phase 3 design overhaul. Adds two purely visual / interaction features on top of the existing dashboard: a **responsive grid layout** for job cards at larger viewport widths, and an **animated category filter** that pops non-matching cards out with a burst and inflates newly-matching cards back in. No logic, routing, or data changes — the existing filter code still drives what's visible.
