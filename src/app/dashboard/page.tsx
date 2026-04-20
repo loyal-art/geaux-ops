@@ -6,27 +6,65 @@ import type { Job } from '@/lib/types'
 
 // ── Greeting ──────────────────────────────────────────────────────────────────
 
-function greeting(name: string) {
+function timeOfDay(): { label: string; emoji: string } {
   const h = new Date().getUTCHours()
-  if (h < 12) return `Good morning, ${name}`
-  if (h < 17) return `Good afternoon, ${name}`
-  return `Good evening, ${name}`
+  if (h < 12) return { label: 'Good morning', emoji: '☕' }
+  if (h < 17) return { label: 'Good afternoon', emoji: '⚡' }
+  return { label: 'Good evening', emoji: '🌙' }
 }
 
-// ── Stat chip ─────────────────────────────────────────────────────────────────
+const TAGLINES = [
+  "Let's crush some pops today",
+  'Ready when you are',
+  'One bubble at a time',
+  "Let's make today count",
+  'Small wins stack up fast',
+  'Fresh day, clean queue',
+]
 
-function Stat({ value, label, color }: { value: number; label: string; color: string }) {
+function pickTagline(): string {
+  return TAGLINES[Math.floor(Math.random() * TAGLINES.length)]
+}
+
+// ── Stat bubble ───────────────────────────────────────────────────────────────
+
+function StatBubble({ value, color, glow }: { value: number; color: string; glow: string }) {
   return (
     <div
-      className="flex flex-col items-center px-4 py-4 rounded-2xl flex-1"
+      className="relative flex items-center justify-center"
       style={{
-        backgroundColor: '#1A1D27',
-        border: '1px solid rgba(255,255,255,0.06)',
-        borderTop: `2px solid ${color}40`,
+        width:        '58px',
+        height:       '58px',
+        borderRadius: 'var(--radius-full)',
+        background:   `radial-gradient(circle at 30% 30%, ${color}FF 0%, ${color}DD 55%, ${color}99 100%)`,
+        boxShadow:    glow,
       }}
     >
-      <span className="text-2xl font-bold" style={{ color }}>{value}</span>
-      <span className="text-[10px] tracking-wide uppercase mt-0.5" style={{ color: '#8B8F9E' }}>{label}</span>
+      {/* Shine highlight ellipse */}
+      <span
+        aria-hidden
+        className="absolute pointer-events-none"
+        style={{
+          top:          '18%',
+          left:         '22%',
+          width:        '18px',
+          height:       '10px',
+          borderRadius: '9999px',
+          background:   'rgba(255,255,255,0.5)',
+          filter:       'blur(1.5px)',
+        }}
+      />
+      <span
+        className="relative"
+        style={{
+          fontSize:   '20px',
+          fontWeight: 'var(--weight-extra)',
+          color:      '#0F1117',
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </span>
     </div>
   )
 }
@@ -180,51 +218,133 @@ export default async function DashboardPage() {
   ).length
 
   const displayName = profile?.display_name ?? user.email?.split('@')[0] ?? 'there'
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const firstName   = displayName.split(' ')[0] || displayName
+  const today       = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const { label: greetLabel, emoji: greetEmoji } = timeOfDay()
+  const tagline     = pickTagline()
 
   return (
-    <div className="max-w-lg mx-auto">
-      {/* ── Header ── */}
-      <div className="px-5 pt-14 pb-8">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold mb-0.5 leading-tight" style={{ color: '#E8E9ED' }}>
-              {greeting(displayName)}
-            </h1>
-            <p className="text-sm" style={{ color: '#8B8F9E' }}>{today}</p>
-          </div>
-          <button
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-opacity hover:opacity-70"
-            style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.06)' }}
-            aria-label="Notifications"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 01-3.46 0" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Stats row ── */}
-      <div className="px-5 mb-8 flex gap-3">
-        <Stat value={inProgressCount} label="In Progress" color="#60A5FA" />
-        <Stat value={completedToday}  label="Done Today"  color="#4ADE80" />
-        <Stat value={urgentCount}     label="Urgent"      color="#F87171" />
-      </div>
-
-      {/* ── My Day ── */}
-      <MyDaySection
-        overdue={overdueJobs}
-        dueToday={dueTodayJobs}
-        todaysRecurring={todaysRecurringJobs}
-        needsAttention={needsAttentionJobs}
-        almostDone={almostDoneJobs}
-        waitingFollowUp={waitingFollowUpJobs}
+    <div className="relative max-w-lg mx-auto">
+      {/* ── Decorative blur orbs (behind everything) ── */}
+      <div
+        aria-hidden
+        className="absolute pointer-events-none"
+        style={{
+          top:          '-60px',
+          right:        '-80px',
+          width:        '260px',
+          height:       '260px',
+          borderRadius: 'var(--radius-full)',
+          background:   'radial-gradient(circle, rgba(200,164,78,0.18) 0%, rgba(200,164,78,0) 65%)',
+          filter:       'blur(30px)',
+          zIndex:       0,
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute pointer-events-none"
+        style={{
+          bottom:       '120px',
+          left:         '-90px',
+          width:        '280px',
+          height:       '280px',
+          borderRadius: 'var(--radius-full)',
+          background:   'radial-gradient(circle, rgba(167,139,250,0.14) 0%, rgba(167,139,250,0) 65%)',
+          filter:       'blur(32px)',
+          zIndex:       0,
+        }}
       />
 
-      {/* ── Interactive feed (tabs + search + cards) ── */}
-      <DashboardFeed activeJobs={activeJobs} completedJobs={completedJobs} />
+      <div className="relative" style={{ zIndex: 1 }}>
+        {/* ── Header ── */}
+        <div className="pt-14" style={{ paddingLeft: 'var(--space-5)', paddingRight: 'var(--space-5)', paddingBottom: 'var(--space-6)' }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1
+                className="leading-tight"
+                style={{
+                  fontSize:      '28px',
+                  fontWeight:    'var(--weight-extra)',
+                  color:         'var(--text-primary)',
+                  letterSpacing: 'var(--tracking-tight)',
+                  marginBottom:  '4px',
+                }}
+              >
+                {greetLabel}, {firstName} <span aria-hidden>{greetEmoji}</span>
+              </h1>
+              <p
+                className="mb-1"
+                style={{
+                  fontSize:   'var(--text-sm)',
+                  color:      'var(--text-secondary)',
+                  fontWeight: 'var(--weight-semibold)',
+                }}
+              >
+                {tagline}
+              </p>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>
+                {today}
+              </p>
+            </div>
+            <button
+              className="flex-shrink-0 w-10 h-10 flex items-center justify-center transition-opacity hover:opacity-70"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                border:          '1px solid rgba(255,255,255,0.06)',
+                borderRadius:    'var(--radius-md)',
+              }}
+              aria-label="Notifications"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 01-3.46 0" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Stats row: 3 bubbles + legend ── */}
+        <div
+          className="flex items-center"
+          style={{
+            paddingLeft:  'var(--space-5)',
+            paddingRight: 'var(--space-5)',
+            gap:          'var(--space-4)',
+            marginBottom: 'var(--space-8)',
+          }}
+        >
+          <div className="flex items-center" style={{ gap: 'var(--space-3)' }}>
+            <StatBubble value={inProgressCount} color="#60A5FA" glow="var(--glow-blue)" />
+            <StatBubble value={completedToday}  color="#4ADE80" glow="var(--glow-green)" />
+            <StatBubble value={urgentCount}     color="#F87171" glow="var(--glow-red)" />
+          </div>
+          <p
+            className="flex-1"
+            style={{
+              fontSize:      'var(--text-xs)',
+              color:         'var(--text-tertiary)',
+              fontWeight:    'var(--weight-semibold)',
+              letterSpacing: 'var(--tracking-wide)',
+              lineHeight:    1.5,
+            }}
+          >
+            In Progress · Done · Urgent
+          </p>
+        </div>
+
+        {/* ── My Day ── */}
+        <MyDaySection
+          overdue={overdueJobs}
+          dueToday={dueTodayJobs}
+          todaysRecurring={todaysRecurringJobs}
+          needsAttention={needsAttentionJobs}
+          almostDone={almostDoneJobs}
+          waitingFollowUp={waitingFollowUpJobs}
+        />
+
+        {/* ── Interactive feed (tabs + search + cards) ── */}
+        <DashboardFeed activeJobs={activeJobs} completedJobs={completedJobs} />
+      </div>
     </div>
   )
 }

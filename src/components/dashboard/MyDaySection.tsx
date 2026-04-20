@@ -30,13 +30,25 @@ function MyDaySubSection({ emoji, title, color, jobs }: SubSectionProps) {
     <div className="mb-5 last:mb-0">
       {/* Section label */}
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm">{emoji}</span>
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>
+        <span style={{ fontSize: '16px' }}>{emoji}</span>
+        <span
+          style={{
+            fontSize:   '14px',
+            fontWeight: 'var(--weight-bold)',
+            color,
+          }}
+        >
           {title}
         </span>
         <span
-          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-          style={{ backgroundColor: `${color}20`, color }}
+          className="px-1.5 py-0.5"
+          style={{
+            fontSize:        '10px',
+            fontWeight:      'var(--weight-bold)',
+            backgroundColor: `${color}20`,
+            color,
+            borderRadius:    'var(--radius-full)',
+          }}
         >
           {jobs.length}
         </span>
@@ -93,72 +105,101 @@ export function MyDaySection({ overdue, dueToday, todaysRecurring, needsAttentio
   }, [isHomepage, setExpanded])
 
   return (
-    <section className="px-5 mb-6">
-      {/* ── Header toggle ── */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 py-3 group"
-      >
-        {/* Chevron */}
-        <svg
-          width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="#C8A44E" strokeWidth="2.5" strokeLinecap="round"
-          className="transition-transform duration-200"
-          style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-        >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-
-        {/* Title */}
-        <span className="text-sm font-bold tracking-wide" style={{ color: '#C8A44E' }}>
-          My Day
-        </span>
-
-        {/* Count badge */}
-        {totalItems > 0 && (
-          <span
-            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: 'rgba(200,164,78,0.15)', color: '#C8A44E' }}
-          >
-            {totalItems}
-          </span>
-        )}
-
-        {/* Divider line */}
-        <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(200,164,78,0.2)' }} />
-      </button>
-
-      {/* ── Collapsible content ── */}
+    <section
+      className="mb-6"
+      style={{
+        marginLeft:   'var(--space-5)',
+        marginRight:  'var(--space-5)',
+      }}
+    >
       <div
-        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-        style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius:    'var(--radius-xl)',
+          border:          '1px solid rgba(200,164,78,0.28)',
+          padding:         'var(--space-5)',
+          boxShadow:       'var(--shadow-md)',
+        }}
       >
-        <div className="overflow-hidden">
-          <div className="pt-2 pb-1">
-            {allEmpty ? (
-              <AllClear />
-            ) : (
-              <>
-                {overdue.length > 0 && (
-                  <MyDaySubSection emoji="🔴" title="Overdue" color="#F87171" jobs={overdue} />
-                )}
-                {dueToday.length > 0 && (
-                  <MyDaySubSection emoji="📅" title="Due Today" color="#C8A44E" jobs={dueToday} />
-                )}
-                {todaysRecurring.length > 0 && (
-                  <MyDaySubSection emoji="🔁" title="Today's Recurring" color="#60A5FA" jobs={todaysRecurring} />
-                )}
-                {needsAttention.length > 0 && (
-                  <MyDaySubSection emoji="⏸" title="Needs Attention" color="#FB923C" jobs={needsAttention} />
-                )}
-                {waitingFollowUp.length > 0 && (
-                  <MyDaySubSection emoji="⏳" title="Still Waiting? Time to follow up." color="#EAB308" jobs={waitingFollowUp} />
-                )}
-                {almostDone.length > 0 && (
-                  <MyDaySubSection emoji="🏁" title="Almost Done" color="#4ADE80" jobs={almostDone} />
-                )}
-              </>
-            )}
+        {/* ── Header toggle ── */}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center gap-3 group"
+        >
+          {/* Chevron */}
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="#C8A44E" strokeWidth="2.5" strokeLinecap="round"
+            className="transition-transform duration-200"
+            style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+          >
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+
+          {/* Title — gradient gold */}
+          <span
+            className="text-gradient-gold"
+            style={{
+              fontSize:      '18px',
+              fontWeight:    'var(--weight-extra)',
+              letterSpacing: 'var(--tracking-tight)',
+            }}
+          >
+            My Day
+          </span>
+
+          {/* Count badge */}
+          {totalItems > 0 && (
+            <span
+              className="px-2 py-0.5"
+              style={{
+                fontSize:        '10px',
+                fontWeight:      'var(--weight-bold)',
+                backgroundColor: 'rgba(200,164,78,0.18)',
+                color:           'var(--accent-gold)',
+                borderRadius:    'var(--radius-full)',
+              }}
+            >
+              {totalItems}
+            </span>
+          )}
+
+          {/* Divider line */}
+          <div className="flex-1 h-px" style={{ backgroundColor: 'rgba(200,164,78,0.2)' }} />
+        </button>
+
+        {/* ── Collapsible content ── */}
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+          style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
+        >
+          <div className="overflow-hidden">
+            <div className="pt-3 pb-1">
+              {allEmpty ? (
+                <AllClear />
+              ) : (
+                <>
+                  {overdue.length > 0 && (
+                    <MyDaySubSection emoji="🔴" title="Overdue" color="#F87171" jobs={overdue} />
+                  )}
+                  {dueToday.length > 0 && (
+                    <MyDaySubSection emoji="📅" title="Due Today" color="#C8A44E" jobs={dueToday} />
+                  )}
+                  {todaysRecurring.length > 0 && (
+                    <MyDaySubSection emoji="🔁" title="Today's Recurring" color="#60A5FA" jobs={todaysRecurring} />
+                  )}
+                  {needsAttention.length > 0 && (
+                    <MyDaySubSection emoji="⏸" title="Needs Attention" color="#FB923C" jobs={needsAttention} />
+                  )}
+                  {waitingFollowUp.length > 0 && (
+                    <MyDaySubSection emoji="⏳" title="Still Waiting? Time to follow up." color="#EAB308" jobs={waitingFollowUp} />
+                  )}
+                  {almostDone.length > 0 && (
+                    <MyDaySubSection emoji="🏁" title="Almost Done" color="#4ADE80" jobs={almostDone} />
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

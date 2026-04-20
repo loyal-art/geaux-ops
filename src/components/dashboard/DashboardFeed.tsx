@@ -16,12 +16,12 @@ interface Props {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'all',      label: 'All' },
-  { value: 'business', label: 'Business' },
-  { value: 'home',     label: 'Home' },
-  { value: 'personal', label: 'Personal' },
-  { value: 'misc',     label: 'Misc' },
+const TABS: { value: Tab; label: string; emoji: string | null }[] = [
+  { value: 'all',      label: 'All',      emoji: null },
+  { value: 'business', label: 'Business', emoji: '💼' },
+  { value: 'home',     label: 'Home',     emoji: '🏠' },
+  { value: 'personal', label: 'Personal', emoji: '👤' },
+  { value: 'misc',     label: 'Misc',     emoji: '📁' },
 ]
 
 // ── Section header ────────────────────────────────────────────────────────────
@@ -142,13 +142,19 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
               <button
                 key={t.value}
                 onClick={() => handleTabChange(t.value)}
-                className="flex-shrink-0 px-4 py-2 text-xs font-bold rounded-full transition-all active:scale-95"
+                className="flex-shrink-0 inline-flex items-center gap-1.5 transition-all active:scale-95"
                 style={{
-                  backgroundColor: active ? '#C8A44E' : 'rgba(255,255,255,0.06)',
-                  color:           active ? '#0F1117' : '#8B8F9E',
-                  boxShadow:       active ? '0 0 14px rgba(200,164,78,0.4)' : 'none',
+                  padding:      '8px 16px',
+                  fontSize:     '13px',
+                  fontWeight:   active ? 'var(--weight-extra)' : 'var(--weight-semibold)',
+                  borderRadius: 'var(--radius-full)',
+                  background:   active ? 'var(--gradient-gold)'   : 'var(--bg-tertiary)',
+                  color:        active ? '#0F1117'                : 'var(--text-secondary)',
+                  boxShadow:    active ? 'var(--glow-gold)'       : 'none',
+                  border:       active ? '1px solid transparent'  : '1px solid rgba(255,255,255,0.04)',
                 }}
               >
+                {t.emoji && <span aria-hidden>{t.emoji}</span>}
                 {t.label}
               </button>
             )

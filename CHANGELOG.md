@@ -9,6 +9,65 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Phase 3 — Design Overhaul Stage 2: Dashboard redesign (April 2026)
+
+Second stage of the Phase 3 design overhaul — the **Dashboard** is now a Playful + Energetic surface. Consumes the tokens introduced in Stage 1, swaps the greeting/stats/tabs/cards/nav for bubble-forward treatments, and wraps My Day in a gold-accented card. **No logic, routing, or data changes** — every existing feature (tabs, search, client chips, My Day expand/collapse, nav permissions) works identically.
+
+### Added
+- **Greeting with time-of-day emoji + rotating tagline** (`src/app/dashboard/page.tsx`):
+  - `timeOfDay()` helper returns `{ label, emoji }` — `☕ Good morning` (< 12 UTC), `⚡ Good afternoon` (< 17 UTC), `🌙 Good evening` (otherwise)
+  - First name is split from `display_name` (`'Jane Doe'` → `'Jane'`)
+  - 28 px `--weight-extra` heading, `--tracking-tight`, `--text-primary` color
+  - 6-phrase `TAGLINES` list (`"Let's crush some pops today"`, `'Ready when you are'`, `'One bubble at a time'`, `"Let's make today count"`, `'Small wins stack up fast'`, `'Fresh day, clean queue'`) — one is picked at random per render via `pickTagline()`. This runs server-side (page is an async Server Component) so there is no hydration mismatch — the HTML the client receives already has the chosen phrase baked in.
+  - Date now renders in `--text-tertiary` below the tagline
+- **Bubble stats row** — `StatBubble` component replaces the old flat stat cards:
+  - 58 × 58 px circular bubbles with status-color radial gradients (blue `#60A5FA` / green `#4ADE80` / red `#F87171` for In Progress / Done / Urgent) and matching `--glow-blue` / `--glow-green` / `--glow-red` outer glows
+  - White `rgba(255,255,255,0.5)` highlight ellipse at 30% 30% (18 × 10 px, blur 1.5 px) for the 3D bubble shine
+  - 20 px `--weight-extra` number centered on dark text for contrast
+  - Muted `"In Progress · Done · Urgent"` legend to the right
+- **Category tab chunky gradient pills** (`src/components/dashboard/DashboardFeed.tsx`):
+  - Emoji prefixes added to category tabs: `💼 Business`, `🏠 Home`, `👤 Personal`, `📁 Misc` (All remains emoji-less)
+  - Selected tab: `--gradient-gold` background, `#0F1117` text, `--glow-gold` shadow, `--weight-extra`
+  - Unselected tab: `--bg-tertiary` background, `--text-secondary` text, `--weight-semibold`, 1 px hairline border
+  - `--radius-full` pill shape with 8 px × 16 px padding, 13 px font size
+- **Redesigned `JobCard`** (`src/components/jobs/JobCard.tsx`):
+  - New container: `--bg-secondary`, `--radius-xl` (20 px), **2 px status-color border at 30% opacity** (replaces the old 1.5 px top color strip + hairline border), `--shadow-md`
+  - Corner radial glow in status color at 15% opacity (`180 × 180 px` at `top: -60 px, right: -60 px`), contained by card's `overflow: hidden`
+  - Category label: `CATEGORY_EMOJI` + template name (`💼 💼 / 🏠 / 👤 / 📁`) in status color, 11 px `--weight-bold`, uppercase
+  - Job title: 16 px `--weight-extra`, `--text-primary`, `leading: 1.3`
+  - **Status pill badge** with SOLID status-color fill + dark `#0F1117` text + uppercase `--weight-extra` label + emoji prefix — mappings: `🚀 ACTIVE` (in_progress), `⏸ WAITING` (waiting), `✨ READY` (ready), `📋 QUEUED` (queued), `🚫 BLOCKED` (blocked), `✅ DONE` (completed), `📝 UNASSIGNED` (unassigned), `🗑 CANCELLED` (cancelled), `📦 ARCHIVED` (archived)
+  - **Step bubbles** replace the ramp as the primary progress indicator: `StepBubble` component renders an 18 × 18 px circle per step — `--gradient-green` + `--glow-green` for completed, `--gradient-blue` + `--glow-blue` + `.pulse-slow` for the current step (first non-done step on an `in_progress` job), `--bg-tertiary` with a darker `--bg-elevated` border for pending. Up to **10 bubbles render**, and any overflow collapses into a `+N` indicator in `--text-tertiary`
+  - Big right-side percentage: 18 px `--weight-black` (900) in the status color
+  - Ramp (`TriangleProgress size="sm"`) kept as a subtle secondary detail at 60% opacity next to the percentage — bubbles are the primary visual now
+  - Priority (urgent / low dot + label) and overdue flag moved up into the category row for tighter vertical rhythm
+- **My Day card wrap + gold-gradient title** (`src/components/dashboard/MyDaySection.tsx`):
+  - Section is now wrapped in a `--bg-secondary` / `--radius-xl` / `--shadow-md` card with a subtle gold accent border (`rgba(200,164,78,0.28)`) and `--space-5` internal padding
+  - Title uses the `.text-gradient-gold` utility at 18 px `--weight-extra` (was 14 px flat gold)
+  - Sub-section headers now render their emoji at 16 px and title at 14 px `--weight-bold` (was 12 px uppercase + tracking-wider); label color stays category-specific so overdue / due-today / recurring / attention / follow-up / almost-done remain visually distinct
+- **Bottom nav bubble treatment** (`src/components/ui/BottomNav.tsx`):
+  - Center `+` is now a full bubble — 52 × 52 px, `--gradient-gold` radial fill, white shine ellipse (same construction as the stat bubbles), `0 0 22 px rgba(200,164,78,0.55)` glow layered with `--shadow-lg`
+  - Other nav items use a 40 × 40 px `rgba(200,164,78,0.14)` **round pill background on active state** with a 180 ms background-color transition; inactive keeps the transparent slot
+  - Bottom bar itself now pulls `--bg-secondary` and label weights lift to `--weight-bold` / `--weight-semibold` via tokens
+- **Decorative background orbs on the dashboard**:
+  - 260 × 260 px gold orb at `top: -60 px, right: -80 px` (`rgba(200,164,78,0.18)` radial fade, `blur 30 px`)
+  - 280 × 280 px purple orb at `bottom: 120 px, left: -90 px` (`rgba(167,139,250,0.14)` radial fade, `blur 32 px`)
+  - Both absolutely positioned inside a new `position: relative` dashboard wrapper, `pointer-events: none`, `aria-hidden`, behind the content (`zIndex: 0`); content sits at `zIndex: 1`
+
+### Changed
+- Dashboard header and stats section now use token-based spacing (`--space-5` horizontal padding, `--space-4` / `--space-6` / `--space-8` rhythm) instead of the previous Tailwind `px-5 / mb-6 / mb-8` literals where tokens make intent clearer
+- Notifications bell button: background moved to `--bg-secondary`, corner moved to `--radius-md`
+
+### Notes
+- **No logic, routing, or data changes**: the Supabase queries, filters, My Day section computation, localStorage prefs (`geaux-myday-expanded`, `geaux-myday-homepage`), and nav permissions (`canCreateJobs`) are byte-identical. Only JSX and style objects changed.
+- **Shared JobCard**: `JobCard` is also rendered on the project detail page (`src/app/projects/[id]/page.tsx`). That screen inherits the redesign for free — intentional, since we want the card treatment consistent everywhere.
+- **Server-safe randomness**: `pickTagline()` uses `Math.random()` but runs only in the async Server Component; the HTML the client receives is deterministic per request, so there is no hydration-mismatch risk.
+- **Step bubbles ordering**: steps are rendered in the order returned by Supabase (the dashboard query doesn't explicitly sort `job_steps`, matching prior behavior). "Current step" is the first non-done step on an `in_progress` job.
+- **Ramp is not gone** — `TriangleProgress` still ships; it's just demoted from the card's hero indicator to a small companion glyph alongside the big percentage. The existing `TriangleProgress` component and its `size` API are untouched.
+- **Token reach**: roughly 85% of the touched styles now resolve through `var(--…)` references; the few remaining hardcoded hex values are category-specific shades that either (a) aren't in the token set (e.g. `#FB923C` for the overdue flag, already a token but called inline for clarity) or (b) are status-color-dependent rgba composites like the 30% border and 15% corner glow, which are built from the status hex at runtime.
+- **Visual parity check**: `card-hover` is preserved on `JobCard`, so hover-lift behavior is unchanged. The `active:scale-[0.98]` and transition rules still apply.
+
+---
+
 ## Phase 3 — Design Overhaul Stage 1: Design tokens (April 2026)
 
 First stage of the Phase 3 design overhaul. Establishes the full **design-token system** based on the *"Playful + Energetic"* direction. This stage is **token infrastructure only** — no component files were touched and no existing visual styling has changed. Components will be migrated to these tokens in later stages.
