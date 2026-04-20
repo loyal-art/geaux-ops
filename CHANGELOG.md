@@ -9,6 +9,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Phase 3 — Design Overhaul Stage 3: Responsive grid + animated category filter (April 2026)
+
+Third stage of the Phase 3 design overhaul. Adds two purely visual / interaction features on top of the existing dashboard: a **responsive grid layout** for job cards at larger viewport widths, and an **animated category filter** that pops non-matching cards out with a burst and inflates newly-matching cards back in. No logic, routing, or data changes — the existing filter code still drives what's visible.
+
+### Added
+- **Card enter / exit / reflow keyframes** (`src/app/globals.css`):
+  - `@keyframes geaux-card-exit` → `scale 1 → 1.1 → 1.02 → 0.55` with `opacity 1 → 0.8 → 0` over **400 ms** on `cubic-bezier(0.2, 0.8, 0.3, 1)`
+  - `@keyframes geaux-card-enter` → `scale 0 → 1.08 → 1` with `opacity 0 → 1` over **320 ms** on `cubic-bezier(0.34, 1.56, 0.64, 1)` (overshoot bounce)
+  - `.geaux-card-reflow` → `transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1)` for FLIP-driven reflow on cards that stay visible but move to a new grid cell
+  - All three classes pair with existing `--ease-smooth` / `--ease-bounce` token semantics; `will-change` hints are set on the animating classes
+- **Animated category filter** (`src/components/dashboard/DashboardFeed.tsx`):
+  - New per-card `AnimState = { mode: 'entering' | 'visible' | 'exiting'; tick }` tracked in a `Map<id, AnimState>`; initialized on mount so first paint has everything at `visible` (no enter flash on initial SSR hydration)
+  - `matchingIds` memo derives the filter set from `tab + search + clientFilter`. A sync effect diffs `matchingIds` against the current `animStates`:
+    - **Tab change**: new matches → `entering`, lost matches → `exiting` (kept in DOM until the 400 ms exit animation finishes, then removed)
+    - **Search / client chip change**: new matches → immediate `visible`, lost matches → immediate removal. Filter feels responsive while typing; only the category taps trigger the pop animation
+  - Monotonic `tickRef` + state-tick guard on cleanup timers so a card that flips mode mid-animation (e.g. "Business → Home → Business" in 150 ms) doesn't get stale `setTimeout` writes
+  - `CardExitBurst` component — 8 particles with deterministic angle + distance jitter from a golden-ratio seed (`((seed * 0.6180339887) % 1) * 2π`), reusing the existing `.geaux-pop-particle` class / `--tx` / `--ty` custom-property convention from Geaux Ops Pops. Particle palette cycles through gold / green / blue / red / purple / orange so bursts feel vibrant across the whole color system
+  - FLIP reflow: `useLayoutEffect` records each visible card's `getBoundingClientRect()` on every render. When a card is still `visible` and its rect changed, the effect applies an inverted `transform: translate(dx, dy)` with `transition: none`, forces layout, then transitions back to `translate(0, 0)` over 250 ms. Cards currently playing `entering` / `exiting` animations are skipped so the two systems don't fight
+- **Responsive grid for job-card sections** — applied inside each status section (In Progress, Waiting, Ready, Queued, Blocked, Unassigned, Recently Completed):
+  - `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` with `gap: var(--space-4)` (16 px)
+  - Section headers still span full width above their grid
+  - Mobile (< 640 px): 1 column (existing look preserved)
+  - Tablet (640 – 1023 px): 2 columns
+  - Desktop (≥ 1024 px): 3 columns
+- **Responsive grid for `/people/groups/[id]` jobs section** (`src/app/people/groups/[id]/page.tsx`):
+  - Same `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3` with `gap: var(--space-4)`
+  - Applied separately to the active-jobs list and the "Completed" list below it so each tier wraps independently
+
+### Changed
+- `src/app/dashboard/page.tsx` wrapper is now `max-w-lg sm:max-w-3xl lg:max-w-6xl mx-auto` (was `max-w-lg mx-auto`). At mobile widths the page still caps at 512 px — identical to prior behavior — but the two new breakpoints widen the container to 768 px / 1152 px so the responsive grid has room to actually lay out 2 and 3 columns without crushing cards
+- `src/app/people/groups/[id]/page.tsx` wrapper updated the same way (`max-w-lg sm:max-w-3xl lg:max-w-6xl`)
+- `DashboardFeed` section rendering is now a `<Section>` helper that accepts `title` and a `cards` array; the empty-state branches remain unchanged. Sections that have zero cards (including ones whose last card just exited) render nothing — so when you filter to a category that has no waiting jobs, the "Waiting" header disappears along with the grid
+- Completed-section `filteredCompleted` is now derived from `animStates` filtered to `status === 'completed'`, matching the same rendering shape as the other six sections for consistency
+
+### Notes
+- **Spec parity**: My Day section and the stats row were explicitly excluded from the grid conversion — they stay in their current single-column hero layout. The new wider page container widens their containers too (since they share the page wrapper), but their internal composition is unchanged.
+- **Spec parity (animation scope)**: only category tab taps trigger the pop / inflate animations. Search input changes and Business-tab client-chip changes still filter immediately without animating, so typing in the search box feels responsive.
+- **No logic changes**: the filter predicates are bit-identical to Stage 2 — `tab + search + clientFilter`. The animated layer wraps the presence of each card, but the match logic wasn't touched.
+- **FLIP + React ref lint**: the new `react-hooks/immutability` rule flags direct DOM mutations that reach through a `useRef` chain. FLIP inherently requires imperative `el.style.*` writes in a `useLayoutEffect`, so the block is wrapped in a narrow `eslint-disable react-hooks/immutability` / re-enable pair. TypeScript + the rest of the ESLint config pass clean.
+- **Shared `JobCard` stays untouched**: the animated wrapper lives entirely in `DashboardFeed` — `JobCard` itself is still a regular server-renderable component, and the project-detail page (which also imports `JobCard`) is unaffected.
+- **Exit burst palette**: particles are drawn from a 6-color rotation (gold / green / blue / red / purple / orange) so a category with many cards produces a varied burst instead of a monochrome one. Each particle's flight vector is deterministic per `{ tick, particleIndex }` so renders are pure (no `Math.random` in JSX).
+
+---
+
 ## Phase 3 — Design Overhaul Stage 2: Dashboard redesign (April 2026)
 
 Second stage of the Phase 3 design overhaul — the **Dashboard** is now a Playful + Energetic surface. Consumes the tokens introduced in Stage 1, swaps the greeting/stats/tabs/cards/nav for bubble-forward treatments, and wraps My Day in a gold-accented card. **No logic, routing, or data changes** — every existing feature (tabs, search, client chips, My Day expand/collapse, nav permissions) works identically.
