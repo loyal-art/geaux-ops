@@ -2,6 +2,7 @@
 
 import { useTransition, useState } from 'react'
 import { updateGroup, addGroupMember, removeGroupMember } from './actions'
+import { updateWorkspaceRole } from '@/app/users/actions'
 
 interface User {
   id:           string
@@ -11,8 +12,9 @@ interface User {
 }
 
 interface Member {
-  user_id: string
-  users:   User | null
+  user_id:       string
+  role_in_group: string | null
+  users:         User | null
 }
 
 interface Props {
@@ -23,14 +25,22 @@ interface Props {
   allUsers:    User[]
 }
 
+const ROLE_OPTIONS = ['owner', 'admin', 'partner', 'manager', 'worker', 'viewer'] as const
+const DEFAULT_ROLE = 'worker'
+
 export function GroupEditor({ groupId, groupName, description, members, allUsers }: Props) {
-  const [pending, startTransition]   = useTransition()
-  const [editing, setEditing]         = useState(false)
-  const [name, setName]               = useState(groupName)
-  const [desc, setDesc]               = useState(description ?? '')
-  const [nameError, setNameError]     = useState<string | null>(null)
-  const [memberIds, setMemberIds]     = useState<Set<string>>(new Set(members.map(m => m.user_id)))
-  const [selectedAdd, setSelectedAdd] = useState('')
+  const [pending, startTransition]     = useTransition()
+  const [editing, setEditing]          = useState(false)
+  const [name, setName]                = useState(groupName)
+  const [desc, setDesc]                = useState(description ?? '')
+  const [nameError, setNameError]      = useState<string | null>(null)
+  const [memberIds, setMemberIds]      = useState<Set<string>>(new Set(members.map(m => m.user_id)))
+  const [memberRoles, setMemberRoles]  = useState<Map<string, string>>(
+    () => new Map(members.map(m => [m.user_id, m.role_in_group ?? DEFAULT_ROLE])),
+  )
+  const [selectedAdd, setSelectedAdd]  = useState('')
+  const [addRole, setAddRole]          = useState<string>(DEFAULT_ROLE)
+  const [roleError, setRoleError]      = useState<string | null>(null)
 
   const nonMembers = allUsers.filter(u => !memberIds.has(u.id))
 
@@ -53,17 +63,36 @@ export function GroupEditor({ groupId, groupName, description, members, allUsers
   function handleAddMember() {
     if (!selectedAdd) return
     const userId = selectedAdd
+    const role   = addRole
     setSelectedAdd('')
+    setAddRole(DEFAULT_ROLE)
     setMemberIds(prev => new Set([...prev, userId]))
+    setMemberRoles(prev => new Map(prev).set(userId, role))
     startTransition(async () => {
-      await addGroupMember(groupId, userId)
+      await addGroupMember(groupId, userId, role)
     })
   }
 
   function handleRemoveMember(userId: string) {
     setMemberIds(prev => { const s = new Set(prev); s.delete(userId); return s })
+    setMemberRoles(prev => { const m = new Map(prev); m.delete(userId); return m })
     startTransition(async () => {
       await removeGroupMember(groupId, userId)
+    })
+  }
+
+  function handleRoleChange(userId: string, newRole: string) {
+    const previous = memberRoles.get(userId) ?? DEFAULT_ROLE
+    if (previous === newRole) return
+    setRoleError(null)
+    setMemberRoles(prev => new Map(prev).set(userId, newRole))
+    startTransition(async () => {
+      const res = await updateWorkspaceRole(groupId, userId, newRole)
+      if (res?.error) {
+        setRoleError(res.error)
+        // Revert optimistic change
+        setMemberRoles(prev => new Map(prev).set(userId, previous))
+      }
     })
   }
 
@@ -122,6 +151,9 @@ export function GroupEditor({ groupId, groupName, description, members, allUsers
         <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: '#8B8F9E' }}>
           Members ({memberIds.size})
         </p>
+        {roleError && (
+          <p className="text-[11px] mb-2" style={{ color: '#F87171' }}>{roleError}</p>
+        )}
         {currentMembers.length === 0 ? (
           <p className="text-xs" style={{ color: '#8B8F9E' }}>No members yet.</p>
         ) : (
@@ -129,6 +161,7 @@ export function GroupEditor({ groupId, groupName, description, members, allUsers
             {currentMembers.map(u => {
               const display = u.display_name ?? u.email.split('@')[0]
               const initial = display.charAt(0).toUpperCase()
+              const role    = memberRoles.get(u.id) ?? DEFAULT_ROLE
               return (
                 <div
                   key={u.id}
@@ -145,6 +178,20 @@ export function GroupEditor({ groupId, groupName, description, members, allUsers
                     <p className="text-xs font-medium truncate" style={{ color: '#E8E9ED' }}>{display}</p>
                     <p className="text-[10px] truncate" style={{ color: '#8B8F9E' }}>{u.email}</p>
                   </div>
+                  <select
+                    disabled={pending}
+                    value={role}
+                    onChange={e => handleRoleChange(u.id, e.target.value)}
+                    aria-label={`Role for ${display}`}
+                    className="text-[10px] font-semibold px-2 py-1 rounded-lg outline-none disabled:opacity-50"
+                    style={{ backgroundColor: 'rgba(200,164,78,0.1)', color: '#C8A44E', border: '1px solid rgba(200,164,78,0.18)' }}
+                  >
+                    {ROLE_OPTIONS.map(r => (
+                      <option key={r} value={r} style={{ backgroundColor: '#1A1D27', color: '#E8E9ED' }}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     disabled={pending}
                     onClick={() => handleRemoveMember(u.id)}
@@ -173,6 +220,19 @@ export function GroupEditor({ groupId, groupName, description, members, allUsers
             {nonMembers.map(u => (
               <option key={u.id} value={u.id} style={{ backgroundColor: '#1A1D27', color: '#E8E9ED' }}>
                 {u.display_name ?? u.email.split('@')[0]}
+              </option>
+            ))}
+          </select>
+          <select
+            value={addRole}
+            onChange={e => setAddRole(e.target.value)}
+            aria-label="Initial role"
+            className="px-3 py-2 rounded-xl text-xs outline-none"
+            style={{ backgroundColor: 'rgba(200,164,78,0.1)', color: '#C8A44E', border: '1px solid rgba(200,164,78,0.18)' }}
+          >
+            {ROLE_OPTIONS.map(r => (
+              <option key={r} value={r} style={{ backgroundColor: '#1A1D27', color: '#E8E9ED' }}>
+                {r}
               </option>
             ))}
           </select>

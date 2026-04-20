@@ -51,14 +51,14 @@ export async function updateGroup(groupId: string, formData: FormData) {
 
 // ── Add Group Member ───────────────────────────────────────────────────────────
 
-export async function addGroupMember(groupId: string, userId: string) {
+export async function addGroupMember(groupId: string, userId: string, roleInGroup: string = 'worker') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   const { error } = await supabase
     .from('group_members')
-    .insert({ group_id: groupId, user_id: userId })
+    .insert({ group_id: groupId, user_id: userId, role_in_group: roleInGroup })
 
   if (error && error.code !== '23505') return { error: error.message }
 
