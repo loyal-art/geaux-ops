@@ -224,7 +224,7 @@ export default async function DashboardPage() {
   const tagline     = pickTagline()
 
   return (
-    <div className="relative max-w-lg mx-auto">
+    <div className="relative max-w-lg sm:max-w-3xl lg:max-w-6xl mx-auto">
       {/* ── Decorative blur orbs (behind everything) ── */}
       <div
         aria-hidden

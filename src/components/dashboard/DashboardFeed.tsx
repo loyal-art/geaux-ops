@@ -1,13 +1,20 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { JobCard } from '@/components/jobs/JobCard'
-import type { Job, JobCategory } from '@/lib/types'
+import type { Job, JobCategory, JobStatus } from '@/lib/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'all' | JobCategory
+type Tab  = 'all' | JobCategory
+type Mode = 'entering' | 'visible' | 'exiting'
+
+interface AnimState {
+  mode: Mode
+  /** Monotonic tick so each transition reseeds its CSS animation / particles. */
+  tick: number
+}
 
 interface Props {
   activeJobs:    Job[]
@@ -23,6 +30,11 @@ const TABS: { value: Tab; label: string; emoji: string | null }[] = [
   { value: 'personal', label: 'Personal', emoji: '👤' },
   { value: 'misc',     label: 'Misc',     emoji: '📁' },
 ]
+
+const EXIT_MS  = 400
+const ENTER_MS = 320
+
+const PARTICLE_COLORS = ['#C8A44E', '#4ADE80', '#60A5FA', '#F87171', '#A78BFA', '#FB923C']
 
 // ── Section header ────────────────────────────────────────────────────────────
 
@@ -76,17 +88,57 @@ function NoResults({ query }: { query: string }) {
   )
 }
 
+// ── Exit particle burst ───────────────────────────────────────────────────────
+// Eight particles flying out radially with a deterministic (seed-driven) angle
+// and distance jitter. Mounted alongside a card whose `mode === 'exiting'`.
+
+function CardExitBurst({ seed }: { seed: number }) {
+  const particles = Array.from({ length: 8 }, (_, i) => {
+    // Golden-ratio hash for angle jitter — deterministic, render-safe.
+    const jitter = ((seed * 0.6180339887) % 1) * Math.PI * 2
+    const angle  = (i / 8) * Math.PI * 2 + jitter
+    const dist   = 58 + ((seed * 13 + i * 7) % 18)
+    const color  = PARTICLE_COLORS[(i + Math.floor(seed)) % PARTICLE_COLORS.length]
+    const delay  = (i * 11 + seed * 3) % 40
+    return {
+      tx: Math.cos(angle) * dist,
+      ty: Math.sin(angle) * dist,
+      color,
+      delay,
+    }
+  })
+  return (
+    <div className="absolute inset-0 pointer-events-none" aria-hidden>
+      {particles.map((p, i) => (
+        <span
+          key={i}
+          className="geaux-pop-particle"
+          style={{
+            '--tx':          `${p.tx}px`,
+            '--ty':          `${p.ty}px`,
+            backgroundColor: p.color,
+            animationDelay:  `${p.delay}ms`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function DashboardFeed({ activeJobs, completedJobs }: Props) {
-  const [tab, setTab]               = useState<Tab>('all')
-  const [search, setSearch]         = useState('')
+  const [tab, setTab]                   = useState<Tab>('all')
+  const [search, setSearch]             = useState('')
   const [clientFilter, setClientFilter] = useState<string | null>(null)
 
-  function handleTabChange(t: Tab) {
-    setTab(t)
-    setClientFilter(null)
-  }
+  // Index jobs by id for O(1) lookup during the render step below.
+  const jobsById = useMemo(() => {
+    const m = new Map<string, Job>()
+    for (const j of activeJobs)    m.set(j.id, j)
+    for (const j of completedJobs) m.set(j.id, j)
+    return m
+  }, [activeJobs, completedJobs])
 
   // Unique client names for Business tab chips (from ALL business active jobs)
   const businessClientNames = useMemo(() => {
@@ -96,37 +148,225 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
     return [...new Set(names)].sort()
   }, [activeJobs])
 
-  // Core filter: tab + search + client chip
-  function filterJobs(jobs: Job[]): Job[] {
-    return jobs
-      .filter(j => tab === 'all' || j.category === tab)
-      .filter(j => {
-        if (!search) return true
-        const q = search.toLowerCase()
-        return (
-          j.title.toLowerCase().includes(q) ||
-          (j.client_name?.toLowerCase().includes(q) ?? false) ||
-          ((j.projects as { name: string } | null)?.name.toLowerCase().includes(q) ?? false)
-        )
-      })
-      .filter(j => !clientFilter || j.client_name === clientFilter)
+  // ── Active filter → set of matching job IDs ────────────────────────────────
+  const matchingIds = useMemo(() => {
+    const s = new Set<string>()
+    const all = [...activeJobs, ...completedJobs]
+    const q = search.trim().toLowerCase()
+    for (const j of all) {
+      if (tab !== 'all' && j.category !== tab) continue
+      if (q) {
+        const titleMatch  = j.title.toLowerCase().includes(q)
+        const clientMatch = j.client_name?.toLowerCase().includes(q) ?? false
+        const projMatch   = (j.projects as { name: string } | null)?.name.toLowerCase().includes(q) ?? false
+        if (!titleMatch && !clientMatch && !projMatch) continue
+      }
+      if (clientFilter && j.client_name !== clientFilter) continue
+      s.add(j.id)
+    }
+    return s
+  }, [activeJobs, completedJobs, tab, search, clientFilter])
+
+  // ── Animation state per card ───────────────────────────────────────────────
+  // On first mount, every currently-matching card starts in the `visible` mode
+  // so there is no enter-animation flash on initial paint.
+  const tickRef  = useRef(0)
+  const nextTick = () => ++tickRef.current
+
+  const [animStates, setAnimStates] = useState<Map<string, AnimState>>(() => {
+    const m = new Map<string, AnimState>()
+    for (const j of [...activeJobs, ...completedJobs]) {
+      // tab=all by default → every job is matching on mount
+      m.set(j.id, { mode: 'visible', tick: 0 })
+    }
+    return m
+  })
+
+  // Sync animStates whenever the matching set changes. Tab changes drive the
+  // animated in/out transitions; search/clientFilter changes apply instantly
+  // (no animation) so typing feels responsive.
+  const prevTabRef = useRef<Tab>(tab)
+  useEffect(() => {
+    const wasTabChange = prevTabRef.current !== tab
+    prevTabRef.current = tab
+
+    setAnimStates(prev => {
+      const next = new Map(prev)
+
+      // Cards that now match but weren't rendered (or were exiting) come in.
+      for (const id of matchingIds) {
+        const cur = next.get(id)
+        if (!cur) {
+          next.set(id, { mode: wasTabChange ? 'entering' : 'visible', tick: nextTick() })
+        } else if (cur.mode === 'exiting') {
+          next.set(id, { mode: wasTabChange ? 'entering' : 'visible', tick: nextTick() })
+        }
+      }
+
+      // Cards that no longer match: tab change → animate out; search/client
+      // filter change → remove immediately.
+      for (const [id, state] of prev) {
+        if (!matchingIds.has(id) && state.mode !== 'exiting') {
+          if (wasTabChange) {
+            next.set(id, { mode: 'exiting', tick: nextTick() })
+          } else {
+            next.delete(id)
+          }
+        }
+      }
+
+      // Also drop entries for jobs that no longer exist in the source data.
+      for (const id of prev.keys()) {
+        if (!jobsById.has(id)) next.delete(id)
+      }
+
+      return next
+    })
+  }, [matchingIds, tab, jobsById])
+
+  // Finalize transitions: exiting → removed, entering → visible.
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+    for (const [id, state] of animStates) {
+      if (state.mode === 'exiting') {
+        timers.push(setTimeout(() => {
+          setAnimStates(prev => {
+            const cur = prev.get(id)
+            if (!cur || cur.tick !== state.tick || cur.mode !== 'exiting') return prev
+            const next = new Map(prev)
+            next.delete(id)
+            return next
+          })
+        }, EXIT_MS + 20))
+      } else if (state.mode === 'entering') {
+        timers.push(setTimeout(() => {
+          setAnimStates(prev => {
+            const cur = prev.get(id)
+            if (!cur || cur.tick !== state.tick || cur.mode !== 'entering') return prev
+            const next = new Map(prev)
+            next.set(id, { mode: 'visible', tick: cur.tick })
+            return next
+          })
+        }, ENTER_MS + 20))
+      }
+    }
+    return () => timers.forEach(clearTimeout)
+  }, [animStates])
+
+  // ── FLIP: smooth reflow for visible cards that move to new grid cells ─────
+  const cardRefs      = useRef<Map<string, HTMLDivElement>>(new Map())
+  const prevRectsRef  = useRef<Map<string, DOMRect>>(new Map())
+
+  const setCardRef = useCallback((id: string) => (el: HTMLDivElement | null) => {
+    if (el) cardRefs.current.set(id, el)
+    else    cardRefs.current.delete(id)
+  }, [])
+
+  useLayoutEffect(() => {
+    const prev = prevRectsRef.current
+    const nextRects = new Map<string, DOMRect>()
+
+    for (const [id, el] of cardRefs.current) {
+      const rect = el.getBoundingClientRect()
+      nextRects.set(id, rect)
+
+      const state = animStates.get(id)
+      // Only FLIP-animate cards that are settled (`visible`); entering and
+      // exiting cards are running their own transform animations.
+      if (!state || state.mode !== 'visible') continue
+
+      const prevRect = prev.get(id)
+      if (!prevRect) continue
+
+      const dx = prevRect.left - rect.left
+      const dy = prevRect.top  - rect.top
+      if (dx === 0 && dy === 0) continue
+
+      // FLIP: invert then play. Writing to `el.style` is a direct DOM mutation
+      // that side-steps React's render cycle, which is exactly what the
+      // technique requires — so these six writes are explicitly allowed.
+      /* eslint-disable react-hooks/immutability */
+      el.style.transition = 'none'
+      el.style.transform  = `translate(${dx}px, ${dy}px)`
+      // Force layout so the transform is applied before the transition kicks in.
+      el.getBoundingClientRect()
+      el.style.transition = 'transform 250ms cubic-bezier(0.4, 0, 0.2, 1)'
+      el.style.transform  = 'translate(0, 0)'
+      /* eslint-enable react-hooks/immutability */
+    }
+
+    prevRectsRef.current = nextRects
+  }, [animStates, tab, search, clientFilter])
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  function handleTabChange(t: Tab) {
+    if (t === tab) return
+    setTab(t)
+    setClientFilter(null)
   }
 
-  const filteredActive    = filterJobs(activeJobs)
-  const filteredCompleted = filterJobs(completedJobs)
+  // ── Build per-section render lists (includes in-flight exiting cards) ─────
+  function cardsForStatus(status: JobStatus): { job: Job; state: AnimState }[] {
+    const out: { job: Job; state: AnimState }[] = []
+    for (const [id, state] of animStates) {
+      const job = jobsById.get(id)
+      if (!job) continue
+      if (job.status !== status) continue
+      // Completed jobs live in the "Recently Completed" section below, not
+      // the "Completed" status section (there isn't one).
+      out.push({ job, state })
+    }
+    return out
+  }
 
-  const inProgress = filteredActive.filter(j => j.status === 'in_progress')
-  const waiting    = filteredActive.filter(j => j.status === 'waiting')
-  const ready      = filteredActive.filter(j => j.status === 'ready')
-  const queued     = filteredActive.filter(j => j.status === 'queued')
-  const blocked    = filteredActive.filter(j => j.status === 'blocked')
-  const unassigned = filteredActive.filter(j => j.status === 'unassigned')
+  const inProgress  = cardsForStatus('in_progress')
+  const waiting     = cardsForStatus('waiting')
+  const ready       = cardsForStatus('ready')
+  const queued      = cardsForStatus('queued')
+  const blocked     = cardsForStatus('blocked')
+  const unassigned  = cardsForStatus('unassigned')
+  const recentDone  = cardsForStatus('completed')
 
   const hasAnyJobs = activeJobs.length > 0 || completedJobs.length > 0
   const hasResults =
     inProgress.length > 0 || waiting.length > 0 || ready.length > 0 ||
     queued.length > 0 || blocked.length > 0 || unassigned.length > 0 ||
-    filteredCompleted.length > 0
+    recentDone.length > 0
+
+  // Section renderer: responsive grid of job cards for the given status
+  function Section({
+    title,
+    cards,
+    bottomPad = false,
+  }: {
+    title: string
+    cards: { job: Job; state: AnimState }[]
+    bottomPad?: boolean
+  }) {
+    if (cards.length === 0) return null
+    return (
+      <section className={bottomPad ? 'pb-4' : undefined}>
+        <SectionHeader title={title} />
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          style={{ gap: 'var(--space-4)' }}
+        >
+          {cards.map(({ job, state }) => {
+            const cls =
+              state.mode === 'exiting'  ? 'relative geaux-card-exit'  :
+              state.mode === 'entering' ? 'relative geaux-card-enter' :
+                                          'relative geaux-card-reflow'
+            return (
+              <div key={job.id} ref={setCardRef(job.id)} className={cls}>
+                {state.mode === 'exiting' && <CardExitBurst seed={state.tick} />}
+                <JobCard job={job} />
+              </div>
+            )
+          })}
+        </div>
+      </section>
+    )
+  }
 
   return (
     <div>
@@ -260,76 +500,13 @@ export function DashboardFeed({ activeJobs, completedJobs }: Props) {
           </div>
         )}
 
-        {/* In Progress */}
-        {inProgress.length > 0 && (
-          <section>
-            <SectionHeader title="In Progress" />
-            <div className="space-y-3">
-              {inProgress.map(j => <JobCard key={j.id} job={j} />)}
-            </div>
-          </section>
-        )}
-
-        {/* Waiting */}
-        {waiting.length > 0 && (
-          <section>
-            <SectionHeader title="Waiting" />
-            <div className="space-y-3">
-              {waiting.map(j => <JobCard key={j.id} job={j} />)}
-            </div>
-          </section>
-        )}
-
-        {/* Ready */}
-        {ready.length > 0 && (
-          <section>
-            <SectionHeader title="Ready" />
-            <div className="space-y-3">
-              {ready.map(j => <JobCard key={j.id} job={j} />)}
-            </div>
-          </section>
-        )}
-
-        {/* Queued */}
-        {queued.length > 0 && (
-          <section>
-            <SectionHeader title="Queued" />
-            <div className="space-y-3">
-              {queued.map(j => <JobCard key={j.id} job={j} />)}
-            </div>
-          </section>
-        )}
-
-        {/* Blocked */}
-        {blocked.length > 0 && (
-          <section>
-            <SectionHeader title="Blocked" />
-            <div className="space-y-3">
-              {blocked.map(j => <JobCard key={j.id} job={j} />)}
-            </div>
-          </section>
-        )}
-
-        {/* Unassigned */}
-        {unassigned.length > 0 && (
-          <section>
-            <SectionHeader title="Unassigned" />
-            <div className="space-y-3">
-              {unassigned.map(j => <JobCard key={j.id} job={j} />)}
-            </div>
-          </section>
-        )}
-
-        {/* Recently Completed */}
-        {filteredCompleted.length > 0 && (
-          <section className="pb-4">
-            <SectionHeader title="Recently Completed" />
-            <div className="space-y-3">
-              {filteredCompleted.map(j => <JobCard key={j.id} job={j} />)}
-            </div>
-          </section>
-        )}
-
+        <Section title="In Progress" cards={inProgress} />
+        <Section title="Waiting"     cards={waiting}    />
+        <Section title="Ready"       cards={ready}      />
+        <Section title="Queued"      cards={queued}     />
+        <Section title="Blocked"     cards={blocked}    />
+        <Section title="Unassigned"  cards={unassigned} />
+        <Section title="Recently Completed" cards={recentDone} bottomPad />
       </div>
     </div>
   )

@@ -208,3 +208,40 @@ body {
   stroke-dasharray: 36;
   animation: geaux-check-draw 340ms 140ms ease-out both;
 }
+
+/* ── Category-filter card animations ─────────────────────────────────────────
+   Cards that no longer match the active category tab pop out with a brief
+   scale bounce, a radial particle spray, and a fade-to-zero shrink. Cards
+   that newly match inflate in from scale 0 with a gentle overshoot. Cards
+   that remain visible slide smoothly between grid cells via the reflow
+   transition on transform. */
+
+@keyframes geaux-card-exit {
+  0%   { transform: scale(1);    opacity: 1; }
+  25%  { transform: scale(1.1);  opacity: 1; }
+  60%  { transform: scale(1.02); opacity: 0.8; }
+  100% { transform: scale(0.55); opacity: 0; }
+}
+.geaux-card-exit {
+  animation: geaux-card-exit 400ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+
+@keyframes geaux-card-enter {
+  0%   { transform: scale(0);    opacity: 0; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.geaux-card-enter {
+  animation: geaux-card-enter 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: center center;
+}
+
+/* Smooth transform transition for cards that stay visible but reflow into
+   a new grid slot when siblings exit or enter. */
+.geaux-card-reflow {
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}

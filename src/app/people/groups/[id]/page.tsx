@@ -143,7 +143,7 @@ export default async function GroupDetailPage({
   const completedJobs = jobs.filter(j => j.status === 'completed')
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="max-w-lg sm:max-w-3xl lg:max-w-6xl mx-auto">
       {/* ── Header ── */}
       <div className="px-5 pt-12 pb-6">
         <div className="flex items-center gap-3 mb-5">
@@ -288,57 +288,69 @@ export default async function GroupDetailPage({
           {jobs.length === 0 ? (
             <p className="text-sm text-center py-4" style={{ color: '#8B8F9E' }}>No jobs assigned to this group.</p>
           ) : (
-            <div className="space-y-2">
-              {activeJobs.length > 0 && activeJobs.map(j => {
-                const st = JOB_STATUS[j.status as JobStatus] ?? JOB_STATUS.unassigned
-                return (
-                  <Link
-                    key={j.id}
-                    href={`/jobs/${j.id}`}
-                    className="card-hover flex items-center gap-3 px-4 py-3.5 rounded-2xl active:opacity-70"
-                    style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: st.color }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: '#E8E9ED' }}>{j.title}</p>
-                      {j.client_name && (
-                        <p className="text-xs truncate mt-0.5" style={{ color: '#8B8F9E' }}>{j.client_name}</p>
-                      )}
-                    </div>
-                    <span
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: `${st.color}18`, color: st.color }}
-                    >
-                      {st.label}
-                    </span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </Link>
-                )
-              })}
+            <div>
+              {activeJobs.length > 0 && (
+                <div
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  style={{ gap: 'var(--space-4)' }}
+                >
+                  {activeJobs.map(j => {
+                    const st = JOB_STATUS[j.status as JobStatus] ?? JOB_STATUS.unassigned
+                    return (
+                      <Link
+                        key={j.id}
+                        href={`/jobs/${j.id}`}
+                        className="card-hover flex items-center gap-3 px-4 py-3.5 rounded-2xl active:opacity-70"
+                        style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: st.color }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: '#E8E9ED' }}>{j.title}</p>
+                          {j.client_name && (
+                            <p className="text-xs truncate mt-0.5" style={{ color: '#8B8F9E' }}>{j.client_name}</p>
+                          )}
+                        </div>
+                        <span
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: `${st.color}18`, color: st.color }}
+                        >
+                          {st.label}
+                        </span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
+                          <path d="M9 18l6-6-6-6" />
+                        </svg>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
               {completedJobs.length > 0 && (
                 <>
-                  <p className="text-[10px] uppercase tracking-widest font-semibold mt-3 mb-2" style={{ color: '#8B8F9E' }}>
+                  <p className="text-[10px] uppercase tracking-widest font-semibold mt-4 mb-2" style={{ color: '#8B8F9E' }}>
                     Completed
                   </p>
-                  {completedJobs.map(j => (
-                    <Link
-                      key={j.id}
-                      href={`/jobs/${j.id}`}
-                      className="card-hover flex items-center gap-3 px-4 py-3.5 rounded-2xl active:opacity-70 opacity-60"
-                      style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#4ADE80' }} />
-                      <p className="flex-1 text-sm font-medium truncate" style={{ color: '#E8E9ED' }}>{j.title}</p>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </Link>
-                  ))}
+                  <div
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                    style={{ gap: 'var(--space-4)' }}
+                  >
+                    {completedJobs.map(j => (
+                      <Link
+                        key={j.id}
+                        href={`/jobs/${j.id}`}
+                        className="card-hover flex items-center gap-3 px-4 py-3.5 rounded-2xl active:opacity-70 opacity-60"
+                        style={{ backgroundColor: '#1A1D27', border: '1px solid rgba(255,255,255,0.05)' }}
+                      >
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: '#4ADE80' }} />
+                        <p className="flex-1 text-sm font-medium truncate" style={{ color: '#E8E9ED' }}>{j.title}</p>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
+                          <path d="M9 18l6-6-6-6" />
+                        </svg>
+                      </Link>
+                    ))}
+                  </div>
                 </>
               )}
             </div>
