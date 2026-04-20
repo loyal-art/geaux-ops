@@ -9,6 +9,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Phase 3 — Design Overhaul Stage 1: Design tokens (April 2026)
+
+First stage of the Phase 3 design overhaul. Establishes the full **design-token system** based on the *"Playful + Energetic"* direction. This stage is **token infrastructure only** — no component files were touched and no existing visual styling has changed. Components will be migrated to these tokens in later stages.
+
+### Added
+- `src/app/design-tokens.css` — new top-level token file defining the full system on `:root`:
+  - **Colors — Backgrounds**: `--bg-primary` `#0F1117`, `--bg-secondary` `#1A1D27`, `--bg-tertiary` `#242833`, `--bg-elevated` `#2A2F3D`
+  - **Colors — Text**: `--text-primary` `#E8E9ED`, `--text-secondary` `#8B8F9E`, `--text-tertiary` `#6B6F7D`, `--text-muted` `#4A4E5C`
+  - **Colors — Accents (Gold)**: `--accent-gold` `#C8A44E`, `--accent-gold-light` `#E8C878`, `--accent-gold-dark` `#A88A3E`
+  - **Colors — Semantic status**: `--status-in-progress` `#60A5FA`, `--status-waiting` `#EAB308`, `--status-ready` / `--status-completed` `#4ADE80`, `--status-queued` `#8B8F9E`, `--status-blocked` `#F87171`
+  - **Colors — Category**: `--cat-business` `#60A5FA`, `--cat-home` `#A78BFA`, `--cat-personal` `#FB923C`, `--cat-misc` `#8B8F9E`
+  - **Colors — Radial gradients (for bubbles)**: `--gradient-gold` / `--gradient-blue` / `--gradient-green` / `--gradient-purple` / `--gradient-orange` / `--gradient-red` — each a 3-stop radial gradient centered at `30% 30%` from a light tint through the core hue to a dark shade, shaped for 3D-bubble depth
+  - **Typography**: Google Fonts `Inter` imported at weights `400, 600, 700, 800, 900` via `@import url(...&display=swap)`; `--font-display` set to `"Inter"` with system fallbacks
+  - **Typography — Size scale**: `--text-xs` `11px` through `--text-4xl` `32px` (8 steps: 11, 13, 15, 17, 20, 24, 28, 32)
+  - **Typography — Weights**: `--weight-regular` `400`, `--weight-semibold` `600`, `--weight-bold` `700`, `--weight-extra` `800`, `--weight-black` `900`
+  - **Typography — Letter spacing**: `--tracking-tight` `-0.5px`, `--tracking-normal` `0`, `--tracking-wide` `1px`, `--tracking-wider` `2px`
+  - **Spacing scale**: `--space-1` `4px` through `--space-16` `64px` (10 steps: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64)
+  - **Radius**: `--radius-sm` `8px`, `--radius-md` `12px`, `--radius-lg` `16px`, `--radius-xl` `20px`, `--radius-2xl` `24px`, `--radius-full` `9999px`
+  - **Shadows — Elevation**: `--shadow-sm` through `--shadow-xl` — progressively deeper semi-transparent black shadows (opacity 0.25 → 0.55, y-offset 1 → 16, blur 2 → 48)
+  - **Shadows — Glows**: `--glow-gold` / `--glow-blue` / `--glow-green` / `--glow-purple` / `--glow-orange` / `--glow-red` — each `0 0 16px rgba(accent, 0.40)` for accent-tinted outer glows
+  - **Animation — Duration**: `--duration-fast` `150ms`, `--duration-normal` `250ms`, `--duration-slow` `400ms`
+  - **Animation — Easing**: `--ease-bounce` `cubic-bezier(0.34, 1.56, 0.64, 1)` and `--ease-smooth` `cubic-bezier(0.4, 0, 0.2, 1)`
+- **Tailwind 4 `@theme inline` bridge** — re-exposes the custom properties (colors, text sizes, font-display, easing) to Tailwind so utilities like `bg-bg-primary`, `text-text-secondary`, `text-xl`, `font-display`, `ease-bounce` can be generated on demand without duplicating the token values. No existing utility class changes value because the tokens mirror the previous palette where they overlap.
+- **Utility classes (opt-in, currently unused)**:
+  - `.bubble` — circular radial-gradient fill; set `--bubble-gradient` to one of the `--gradient-*` tokens (defaults to gold)
+  - `.glow-gold` / `.glow-blue` / `.glow-green` / `.glow-purple` / `.glow-orange` / `.glow-red` — box-shadow accent glows via the `--glow-*` tokens
+  - `.text-gradient-gold` — clips a gold 135° linear gradient to the text glyphs (`background-clip: text` + transparent fill)
+  - `.card-elevated` — `--bg-secondary` background + `--radius-lg` + `--shadow-md`
+  - `.card-floating` — `--bg-secondary` background + `--radius-lg` + `--shadow-lg`
+  - `.pulse-slow` — 3 s gentle opacity pulse (1 → 0.65 → 1) with `--ease-smooth`, for idle indicators
+
+### Changed
+- `src/app/globals.css` — added `@import "./design-tokens.css";` immediately after the Tailwind import at the very top of the file. Everything else in `globals.css` (the existing `:root` palette, `@theme inline` block, body styles, card-hover rule, ramp-progress animations, and the full Geaux Ops Pops keyframe set) is intentionally left untouched so no current component changes appearance.
+
+### Notes
+- **Scope discipline**: this stage is strictly additive. Zero component files were modified. The existing `:root` variables in `globals.css` (`--background`, `--surface`, `--color-gold`, etc.) are preserved so every currently-rendered screen is byte-identical to the prior commit.
+- **Naming overlap is intentional**: new tokens (e.g. `--bg-primary`, `--accent-gold`) exist alongside the legacy ones (e.g. `--background`, `--color-gold`) with equivalent values where they overlap. Migration in later stages will sweep component-by-component; once all consumers move off the legacy names we will remove them.
+- **Font loading**: `Inter` is fetched from Google Fonts via `@import url(...&display=swap)`. `display=swap` falls back to the system sans immediately and swaps once Inter downloads, so there is no flash-of-invisible-text. No component currently opts into `--font-display` yet.
+- **Tailwind bridge rationale**: putting the tokens in `@theme inline` lets later component migrations lean on Tailwind utilities (`bg-bg-elevated`, `rounded-2xl`, `text-3xl`, etc.) instead of inline `style={{ ... }}` blocks. Using `inline` means Tailwind emits the `var(--token)` reference, so at-runtime theme changes continue to propagate.
+
+---
+
 ## Geaux Ops Pops — Bubble Pop Animation (April 2026)
 
 Signature completion animation: when a step is marked done, the bubble/checkbox gets a satisfying tactile pop with particle burst, gold flash, and an optional short "pop" SFX. Cascading unlocks wake up their newly-available steps with a gentle gold pulse. Unchecking is intentionally quiet — a subtle reverse fade, never a pop.
