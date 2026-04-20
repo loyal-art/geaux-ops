@@ -21,6 +21,11 @@ export async function createJob(formData: FormData) {
   const category         = (formData.get('category') as string) || 'misc'
   const focus            = formData.get('focus') as string | null
 
+  const groupId         = (formData.get('group_id')         as string) || ''
+  const ownerUserId     = (formData.get('owner_user_id')    as string) || ''
+  const assignedTo      = (formData.get('assigned_to')      as string) || ''
+  const assignedTeamId  = (formData.get('assigned_team_id') as string) || ''
+
   const { data: job, error: jobError } = await supabase
     .from('jobs')
     .insert({
@@ -32,7 +37,10 @@ export async function createJob(formData: FormData) {
       priority,
       category,
       status:            'in_progress',
-      assigned_to:       user.id,
+      group_id:          groupId || null,
+      owner_user_id:     ownerUserId || user.id,
+      assigned_to:       assignedTo || null,
+      assigned_team_id:  assignedTeamId || null,
       created_by:        user.id,
     })
     .select()
@@ -585,4 +593,39 @@ export async function isStepLocked(stepId: string): Promise<{ locked: boolean; b
 
   const blockerNames = (incompleteBlockers ?? []).map(s => s.text)
   return { locked: blockerNames.length > 0, blockerNames }
+}
+
+// ── Update Job Assignments ────────────────────────────────────────────────────
+//
+// Reassigns a job's workspace/owner/assignee/team. Manager+ enforcement is
+// handled by RLS + caller-side role check on the job detail page.
+
+export async function updateJobAssignments(
+  jobId: string,
+  payload: {
+    group_id:         string | null
+    owner_user_id:    string | null
+    assigned_to:      string | null
+    assigned_team_id: string | null
+  },
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      group_id:         payload.group_id,
+      owner_user_id:    payload.owner_user_id,
+      assigned_to:      payload.assigned_to,
+      assigned_team_id: payload.assigned_team_id,
+    })
+    .eq('id', jobId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath('/dashboard')
+  return { error: null }
 }
