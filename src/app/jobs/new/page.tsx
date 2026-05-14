@@ -1,258 +1,55 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createJob } from '@/app/jobs/actions'
-import { loadAssignableWorkspaces } from '@/lib/assignments'
-import { AssignmentFields } from '@/components/jobs/AssignmentFields'
-import type { JobTemplate, TemplateStep } from '@/lib/types'
 
-// ── Submit button (must be client for useFormStatus, inline here via wrapper) ─
+// ── Job type card ─────────────────────────────────────────────────────────────
 
-async function SubmitButton() {
-  // Server component fallback — JS loading handled by form pending state
-  return (
-    <button
-      type="submit"
-      className="w-full py-3 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
-      style={{ backgroundColor: '#C8A44E', color: '#0F1117' }}
-    >
-      Create Job
-    </button>
-  )
-}
-
-// ── Template card ─────────────────────────────────────────────────────────────
-
-function TemplateCard({ template }: { template: JobTemplate }) {
-  const stepCount = (template.default_steps as TemplateStep[]).length
+function TypeCard({
+  href, title, description, emoji, accent, accentSoft,
+}: {
+  href: string
+  title: string
+  description: string
+  emoji: string
+  accent: string
+  accentSoft: string
+}) {
   return (
     <Link
-      href={`/jobs/new?template=${template.id}`}
-      className="flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all active:scale-[0.98]"
+      href={href}
+      className="flex items-center gap-4 px-5 py-5 rounded-2xl transition-all active:scale-[0.98] card-hover"
       style={{
-        backgroundColor: '#1A1D27',
-        border:          '1px solid rgba(255,255,255,0.06)',
+        backgroundColor: accentSoft,
+        border:          `1px solid ${accent}26`,
       }}
     >
-      {/* Color dot */}
       <div
-        className="w-3 h-3 rounded-full flex-shrink-0"
-        style={{ backgroundColor: template.color }}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" style={{ color: '#E8E9ED' }}>
-          {template.name}
-        </p>
-        {stepCount > 0 && (
-          <p className="text-[11px]" style={{ color: '#8B8F9E' }}>
-            {stepCount} steps
-          </p>
-        )}
+        className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 text-3xl"
+        style={{ backgroundColor: `${accent}22` }}
+      >
+        <span aria-hidden>{emoji}</span>
       </div>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8B8F9E" strokeWidth="2" strokeLinecap="round">
+      <div className="flex-1 min-w-0">
+        <p className="text-base font-semibold mb-0.5" style={{ color: accent }}>
+          {title}
+        </p>
+        <p className="text-xs leading-snug" style={{ color: '#8B8F9E' }}>
+          {description}
+        </p>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round">
         <path d="M9 18l6-6-6-6" />
       </svg>
     </Link>
   )
 }
 
-// ── Input field ───────────────────────────────────────────────────────────────
-
-function Field({
-  name, label, placeholder, required = false, hint, textarea = false,
-}: {
-  name: string; label: string; placeholder: string
-  required?: boolean; hint?: string; textarea?: boolean
-}) {
-  const base = "w-full rounded-xl px-4 py-3 text-sm outline-none"
-  const style = {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    border:          '1px solid rgba(255,255,255,0.08)',
-    color:           '#E8E9ED',
-  }
-  return (
-    <div>
-      <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider" style={{ color: '#8B8F9E' }}>
-        {label}{required && <span style={{ color: '#F87171' }}> *</span>}
-      </label>
-      {hint && <p className="text-[11px] mb-2 italic" style={{ color: '#8B8F9E' }}>{hint}</p>}
-      {textarea
-        ? <textarea name={name} placeholder={placeholder} rows={3} className={`${base} resize-none`} style={style} />
-        : <input name={name} type="text" placeholder={placeholder} required={required} className={base} style={style} />
-      }
-    </div>
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function NewJobPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ template?: string }>
-}) {
+export default async function NewJobPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-
-  const { template: templateId } = await searchParams
-
-  // ── Phase 2: Job creation form ────────────────────────────────────────────
-
-  if (templateId) {
-    const { data: template } = await supabase
-      .from('job_templates')
-      .select('*')
-      .eq('id', templateId)
-      .single()
-
-    if (!template) redirect('/jobs/new')
-
-    const steps = (template.default_steps as TemplateStep[]) ?? []
-    const workspaces = await loadAssignableWorkspaces(supabase, user.id)
-
-    return (
-      <div className="max-w-lg mx-auto px-5 pt-12 pb-6">
-        {/* Back */}
-        <Link
-          href="/jobs/new"
-          className="inline-flex items-center gap-2 text-sm mb-8 transition-opacity hover:opacity-70"
-          style={{ color: '#8B8F9E' }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-          Back to templates
-        </Link>
-
-        {/* Template identity */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: template.color }} />
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: '#E8E9ED' }}>New Job</h1>
-            <p className="text-sm" style={{ color: '#8B8F9E' }}>{template.name}</p>
-          </div>
-        </div>
-
-        <form action={createJob} className="space-y-5">
-          <input type="hidden" name="template_id" value={templateId} />
-
-          <Field name="title" label="Job Title" placeholder="e.g. RON — Sarah Johnson" required />
-          <Field name="client_name" label="Client / Contact" placeholder="e.g. Sarah Johnson" />
-
-          <Field
-            name="finish_definition"
-            label="F1 — What does finished look like?"
-            placeholder="e.g. Payment confirmed and documents sent to all parties"
-            hint="Define done before you start. This is the F1 — Finish."
-            textarea
-          />
-
-          {/* Priority */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider" style={{ color: '#8B8F9E' }}>
-              Priority
-            </label>
-            <select
-              name="priority"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.04)',
-                border:          '1px solid rgba(255,255,255,0.08)',
-                color:           '#E8E9ED',
-              }}
-            >
-              <option value="normal">Normal</option>
-              <option value="urgent">Urgent</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="block text-xs font-medium mb-1.5 uppercase tracking-wider" style={{ color: '#8B8F9E' }}>
-              Category
-            </label>
-            <select
-              name="category"
-              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.04)',
-                border:          '1px solid rgba(255,255,255,0.08)',
-                color:           '#E8E9ED',
-              }}
-            >
-              <option value="misc">Misc</option>
-              <option value="business">Business</option>
-              <option value="home">Home</option>
-              <option value="personal">Personal</option>
-            </select>
-          </div>
-
-          {/* Assignment */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#C8A44E' }}>
-              Assignment
-            </p>
-            <AssignmentFields
-              workspaces={workspaces}
-              currentUserId={user.id}
-              asHiddenInputs
-            />
-          </div>
-
-          {/* Steps preview */}
-          {steps.length > 0 && (
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: '#8B8F9E' }}>
-                Steps ({steps.length})
-              </p>
-              <div
-                className="rounded-2xl px-4 py-3 space-y-2"
-                style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
-              >
-                {steps.slice(0, 5).map((s, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: template.color, opacity: 0.6 }} />
-                    <p className="text-xs leading-snug" style={{ color: '#8B8F9E' }}>
-                      {s.text}
-                      {s.is_high_impact && (
-                        <span className="ml-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: '#C8A44E' }}>Focus</span>
-                      )}
-                    </p>
-                  </div>
-                ))}
-                {steps.length > 5 && (
-                  <p className="text-[11px]" style={{ color: '#8B8F9E' }}>
-                    + {steps.length - 5} more steps
-                  </p>
-                )}
-              </div>
-              <p className="text-[11px] mt-1.5" style={{ color: '#8B8F9E' }}>
-                You can add, edit, or remove steps after creating the job.
-              </p>
-            </div>
-          )}
-
-          <div className="pt-2">
-            <SubmitButton />
-          </div>
-        </form>
-      </div>
-    )
-  }
-
-  // ── Phase 1: Template picker ───────────────────────────────────────────────
-
-  const { data: templates } = await supabase
-    .from('job_templates')
-    .select('*')
-    .order('category')
-    .order('name')
-
-  const business  = (templates ?? []).filter(t => t.category === 'business') as unknown as JobTemplate[]
-  const household = (templates ?? []).filter(t => t.category === 'household') as unknown as JobTemplate[]
-  const custom    = (templates ?? []).filter(t => t.category === 'custom') as unknown as JobTemplate[]
 
   return (
     <div className="max-w-lg mx-auto px-5 pt-12 pb-6">
@@ -269,77 +66,47 @@ export default async function NewJobPage({
           </svg>
         </Link>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: '#E8E9ED' }}>New Job</h1>
-          <p className="text-sm" style={{ color: '#8B8F9E' }}>Choose a template to get started</p>
+          <h1 className="text-xl font-bold" style={{ color: '#E8E9ED' }}>What kind of job?</h1>
+          <p className="text-sm" style={{ color: '#8B8F9E' }}>Pick the type that fits.</p>
         </div>
       </div>
 
-      {/* AI Generate option */}
-      <Link
-        href="/jobs/ai"
-        className="flex items-center gap-3 px-4 py-4 rounded-2xl transition-all active:scale-[0.98] card-hover mb-8"
-        style={{
-          backgroundColor: 'rgba(167,139,250,0.06)',
-          border: '1px solid rgba(167,139,250,0.15)',
-        }}
-      >
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: 'rgba(167,139,250,0.12)' }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
-          </svg>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold" style={{ color: '#A78BFA' }}>
-            AI Generate
-          </p>
-          <p className="text-[11px]" style={{ color: '#8B8F9E' }}>
-            Describe the job and let AI build the steps
-          </p>
-        </div>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </Link>
+      <div className="space-y-3">
+        <TypeCard
+          href="/jobs/new/notary"
+          title="Notary Request"
+          description="Structured intake for mobile notary appointments — client, location, document, quote."
+          emoji="📜"
+          accent="#C8A44E"
+          accentSoft="rgba(200,164,78,0.06)"
+        />
 
-      <div className="space-y-8">
-        {/* Business */}
-        {business.length > 0 && (
-          <section>
-            <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8F9E' }}>
-              Business
-            </p>
-            <div className="space-y-2">
-              {business.map(t => <TemplateCard key={t.id} template={t} />)}
-            </div>
-          </section>
-        )}
+        <TypeCard
+          href="/jobs/new/vues"
+          title="Southern VUEs Job"
+          description="Real estate media — photo, video, drone, and virtual tour work."
+          emoji="🎥"
+          accent="#60A5FA"
+          accentSoft="rgba(96,165,250,0.06)"
+        />
 
-        {/* Household */}
-        {household.length > 0 && (
-          <section>
-            <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8F9E' }}>
-              Household
-            </p>
-            <div className="space-y-2">
-              {household.map(t => <TemplateCard key={t.id} template={t} />)}
-            </div>
-          </section>
-        )}
+        <TypeCard
+          href="/jobs/new/misc"
+          title="Misc Job"
+          description="Pick a template or start from scratch for everything else."
+          emoji="🗂️"
+          accent="#8B8F9E"
+          accentSoft="rgba(139,143,158,0.06)"
+        />
 
-        {/* Custom */}
-        {custom.length > 0 && (
-          <section>
-            <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8F9E' }}>
-              Custom
-            </p>
-            <div className="space-y-2">
-              {custom.map(t => <TemplateCard key={t.id} template={t} />)}
-            </div>
-          </section>
-        )}
+        <TypeCard
+          href="/jobs/ai"
+          title="AI Generated"
+          description="Describe the job and let AI build the steps."
+          emoji="✨"
+          accent="#A78BFA"
+          accentSoft="rgba(167,139,250,0.06)"
+        />
       </div>
     </div>
   )

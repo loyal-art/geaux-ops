@@ -77,6 +77,133 @@ export async function createJob(formData: FormData) {
   redirect(`/jobs/${job.id}`)
 }
 
+// ── Create Notary Job ─────────────────────────────────────────────────────────
+//
+// Structured intake for the Mobile Notary flow. Mirrors createJob but:
+//   - title is built from document type + signer
+//   - category is always 'business'
+//   - priority auto-bumps to 'urgent' when the appointment is today/tomorrow
+//   - F1 and F2 are fixed notary boilerplate
+//   - workspace defaults to the "Geaux Mobile Notary" group when one exists
+//   - steps are generated from the form values (payment, travel, ID check,
+//     witnesses, notarization, journal, QBO log)
+//   - structured fields persist on `jobs.job_metadata`
+
+function isWithinTwoDays(dateStr: string): boolean {
+  // dateStr is YYYY-MM-DD from an <input type="date">. Compare against today
+  // and tomorrow using local-date arithmetic (avoid TZ drift from new Date()).
+  const today    = new Date()
+  const todayStr = today.toISOString().slice(0, 10)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10)
+  return dateStr === todayStr || dateStr === tomorrowStr
+}
+
+export async function createNotaryJob(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const clientName           = (formData.get('client_name')           as string)?.trim() ?? ''
+  const clientEmail          = (formData.get('client_email')          as string)?.trim() ?? ''
+  const clientPhone          = (formData.get('client_phone')          as string)?.trim() ?? ''
+  const signerNameRaw        = (formData.get('signer_name')           as string)?.trim() ?? ''
+  const locationAddress      = (formData.get('location_address')      as string)?.trim() ?? ''
+  const proposedDate         = (formData.get('proposed_date')         as string)?.trim() ?? ''
+  const proposedTime         = (formData.get('proposed_time')         as string)?.trim() ?? ''
+  const documentType         = (formData.get('document_type')         as string)?.trim() ?? ''
+  const numberOfSignatures   = parseInt((formData.get('number_of_signatures') as string) || '1', 10) || 1
+  const witnessRequirement   = (formData.get('witness_requirement')   as string)?.trim() || 'None'
+  const serviceQuote         = parseFloat((formData.get('service_quote') as string) || '0') || 0
+  const specialInstructions  = (formData.get('special_instructions')  as string)?.trim() ?? ''
+
+  const signerName = signerNameRaw || clientName
+
+  // Default workspace: "Geaux Mobile Notary" if it exists
+  const { data: notaryGroup } = await supabase
+    .from('groups')
+    .select('id')
+    .ilike('name', 'Geaux Mobile Notary')
+    .maybeSingle()
+
+  const title    = `Notary: ${documentType} for ${signerName}`
+  const priority = isWithinTwoDays(proposedDate) ? 'urgent' : 'normal'
+
+  const f1 = 'Document executed and signed properly. Client receives notarized copies. Payment confirmed.'
+  const f2 = 'Verify ID. Confirm signer is willing and competent. Get clean signatures. Be professional and on time.'
+
+  const jobMetadata = {
+    job_type:             'notary',
+    client_email:         clientEmail || null,
+    client_phone:         clientPhone || null,
+    signer_name:          signerName,
+    location_address:     locationAddress,
+    proposed_date:        proposedDate,
+    proposed_time:        proposedTime,
+    document_type:        documentType,
+    number_of_signatures: numberOfSignatures,
+    witness_requirement:  witnessRequirement,
+    service_quote:        serviceQuote,
+    special_instructions: specialInstructions || null,
+  }
+
+  const { data: job, error: jobError } = await supabase
+    .from('jobs')
+    .insert({
+      title,
+      client_name:       clientName,
+      finish_definition: f1,
+      focus:             f2,
+      priority,
+      category:          'business',
+      status:            'in_progress',
+      group_id:          notaryGroup?.id ?? null,
+      owner_user_id:     user.id,
+      created_by:        user.id,
+      job_metadata:      jobMetadata,
+    })
+    .select()
+    .single()
+
+  if (jobError || !job) {
+    redirect(`/jobs/new/notary?error=${encodeURIComponent(jobError?.message ?? 'Failed to create job')}`)
+  }
+
+  // ── Build auto-generated steps ─────────────────────────────────────────────
+  const quoteFmt = serviceQuote.toFixed(2)
+  const stepTexts: string[] = [
+    `Contact ${clientName} to confirm appointment details`,
+    `Collect upfront payment of $${quoteFmt}`,
+    `Travel to ${locationAddress}`,
+    `Verify signer ID`,
+    `Confirm signer understanding and willingness`,
+  ]
+  if (witnessRequirement && witnessRequirement !== 'None') {
+    stepTexts.push(`${witnessRequirement} — Confirm witnesses present`)
+  }
+  stepTexts.push(
+    `Notarize ${numberOfSignatures} signature(s) on ${documentType}`,
+    `Provide client copies`,
+    `Log notarization in journal`,
+    `Mark payment as completed in QBO`,
+  )
+
+  await supabase.from('job_steps').insert(
+    stepTexts.map((text, i) => ({
+      job_id:           job.id,
+      text,
+      sort_order:       i,
+      is_high_impact:   false,
+      allowance_amount: 0,
+      done:             false,
+    }))
+  )
+
+  revalidatePath('/dashboard')
+  redirect(`/jobs/${job.id}`)
+}
+
 // ── Toggle Step ───────────────────────────────────────────────────────────────
 
 export async function toggleStep(stepId: string, done: boolean) {
