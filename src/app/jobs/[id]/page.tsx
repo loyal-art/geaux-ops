@@ -9,6 +9,7 @@ import { CategoryChips } from '@/components/jobs/CategoryChips'
 import { MarkWaitingButton } from '@/components/jobs/MarkWaitingButton'
 import { CompleteJobButton } from '@/components/jobs/CompleteJobButton'
 import { JobAssignments } from '@/components/jobs/JobAssignments'
+import { NotaryDetailsCard } from '@/components/jobs/NotaryDetailsCard'
 import { getPermissions } from '@/lib/permissions'
 import { loadAssignableWorkspaces } from '@/lib/assignments'
 import type { JobStep, JobComment, JobStatus, JobCategory, StepDependency } from '@/lib/types'
@@ -259,6 +260,11 @@ export default async function JobDetailPage({
             )}
           </div>
         </div>
+
+        {/* Notary details (only when this is a notary job) */}
+        {(job.job_metadata as { job_type?: string } | null)?.job_type === 'notary' && (
+          <NotaryDetailsCard metadata={job.job_metadata as Parameters<typeof NotaryDetailsCard>[0]['metadata']} />
+        )}
 
         {/* F1: Finish definition */}
         {job.finish_definition && (

@@ -51,6 +51,7 @@ export interface Job {
   completed_at:        string | null
   archived_at:         string | null
   submitted_via_portal: boolean
+  job_metadata:        Record<string, unknown>
   // Joined from job_templates (Supabase may return array or single object)
   job_templates: Array<{ name: string; color: string }> | { name: string; color: string } | null
   // Joined from job_steps
